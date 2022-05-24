@@ -25,7 +25,7 @@ BgGreen='\e[42m'
 #options
 
 groups=dsDNAphage,NCLDV,RNA,ssDNA,lavidaviridae # viral groups for virsorter2
-compl=90                                        # completeness of phages for checkv (default output of CheckV will be dumped regardless)
+minlength=1500                                  # default minimum viral contig length in bp
 mem=500                                         # memory for SPAdes assembly in GB
 threads=80                                      # Num threads to be used                                  
 ################################################################################################################################
@@ -34,73 +34,67 @@ threads=80                                      # Num threads to be used
 while : ; do
     case $1 in
         -r)
-            shift
-            rDir=$1
-            shift
-            ;;    
-        -o)
-            shift
-            oDir=$1
-            shift
-            ;;
-        -idx)
-            shift
-            idx=1
-            shift
-            ;;
-        -t)
-            shift
-            threads=$1
-            shift
-            ;;
-        -minl)
-            shift
-            minlength=$1
-            shift
-            ;;
-        -co)
-            shift
-            compl=$1
-            shift
-            ;;
-        -mem)
-            shift
-            mem=$1
-            shift
-            ;;  
-       -groups)
-            shift
-            groups=$1
-            shift
-            ;;                                     
-        -h|--help)
-            echo "This script uses Bowtie2 (very-sensitive mode) and samtools to map paired Illumina reads to assembled contigs and outputs .sam, .bam and, if the -idx option is set read abuandance files."
-            echo "USAGE:"
-            echo "-r or -rDir [PATH]: define path to a directory containing quality quality checked reads from Illumina sequencing (mandatory)"
-            echo "-c or -cDir [PATH]: define path to a directory containing corresponding assembled contigs from the reads used for mapping (mandatory)"
-            echo "NOTE: file names should be: XZY_R1.fastq XZY_R2.fastq for reads and XZY_contigs.fasta"
-            echo "-o [PATH]: Directory in which results will be saved. Default: ./"
-            echo "-t [INT]: number of threads allocated for the process. Default: 80"
-            echo "-mem [INT]: Memory for SPAdes assembly in GB (Default 500 GB)"
-            echo "-idx: output mapped read abundance as .txt file"
-            echo "-completeness [INT]: [MANDATORY] parameter for checkv completeness. Will filter >=[completeness]"
-            echo "-minlength [INT]: [MANDATORY] parameter for min viral contig length in base pairs. Will filter >=[minlength]"
-            echo "-groups: Viral groups for virsorter2. Add comma separated after -group flag. Available: dsDNAphage,NCLDV,RNA,ssDNA,lavidaviridae. Default: All groups listed"
-            echo ""
-            echo ""
-            echo ""
-            echo ""
-            echo ""
-            echo ""
-            exit
-            ;; 
-        *)  
-            if [ -z "$1" ]; then break; fi
-            ERR=1
-            shift
-            ;;
+shift
+rDir=$1
+shift
+;;    
+-o)
+shift
+oDir=$1
+shift
+;;
+-idx)
+shift
+idx=1
+shift
+;;
+-t)
+shift
+threads=$1
+shift
+;;
+-minl)
+shift
+minlength=$1
+shift
+;;
+-mem)
+shift
+mem=$1
+shift
+;;  
+-groups)
+shift
+groups=$1
+shift
+;;                                     
+-h|--help)
+echo "This script uses Bowtie2 (very-sensitive mode) and samtools to map paired Illumina reads to assembled contigs and outputs .sam, .bam and, if the -idx option is set read abuandance files."
+echo "USAGE:"
+echo "-r or -rDir [PATH]: define path to a directory containing quality quality checked reads from Illumina sequencing (mandatory)"
+echo "-c or -cDir [PATH]: define path to a directory containing corresponding assembled contigs from the reads used for mapping (mandatory)"
+echo "NOTE: file names should be: XZY_R1.fastq XZY_R2.fastq for reads and XZY_contigs.fasta"
+echo "-o [PATH]: Directory in which results will be saved. Default: ./"
+echo "-t [INT]: number of threads allocated for the process. Default: 80"
+echo "-mem [INT]: Memory for SPAdes assembly in GB (Default 500 GB)"
+echo "-idx: output mapped read abundance as .txt file"
+echo "-minlength [INT]: parameter for min viral contig length in base pairs. Will filter >=[minlength] Default=1500 bp"
+echo "-groups: Viral groups for virsorter2. Add comma separated after -group flag. Available: dsDNAphage,NCLDV,RNA,ssDNA,lavidaviridae. Default: All groups listed"
+echo ""
+echo ""
+echo ""
+echo ""
+echo ""
+echo ""
+exit
+;; 
+*)  
+if [ -z "$1" ]; then break; fi
+    ERR=1
+shift
+;;
 
-    esac
+esac
 done
 
 ################################## Modular Script #######################################
@@ -115,12 +109,12 @@ echo "6: Bowtie2"
 echo "7: VirHostMatcher-Net"
 echo "8: Bacphlip"
 echo "complete"
-echo "9: ViPTreeGen"
-echo "5: Vcontact2"
+echo "10: ViPTreeGen"
+echo "11: Vcontact2"
 
 
 
-echo "9: DIAMOND Blastp ViralRefSeq"
+echo "12: DIAMOND Blastp ViralRefSeq"
 
 
 echo Run module: 
@@ -139,10 +133,8 @@ VirHostMatcher=/bioinf/home/benedikt.heyerhoff/Resources/VirHostMatcher-Net/VirH
 viralrefseq=/bioinf/home/benedikt.heyerhoff/Resources/database/viral.3.protein.faa
 marinehostlist=/bioinf/home/benedikt.heyerhoff/Resources/VirHostMatcher-Net/genome_list/marine_host_list.txt
 virhostmatcherdata=/bioinf/home/benedikt.heyerhoff/Resources/VirHostMatcher-Net/data
-removesmalls=/bioinf/home/benedikt.heyerhoff/Resources/RemoveSmalls.pl
 vibrant=/bioinf/home/benedikt.heyerhoff/Resources/VIBRANT/VIBRANT_run.py
-
-
+fastANI=/bioinf/home/benedikt.heyerhoff/Resources/FastANI/fastANI
 
 
 ###############################################################################################################################
@@ -183,7 +175,7 @@ if [[ "$STEP" == 0 || "$mode" == "complete" ]]; then
     echo ""
     echo ""
     for s in $(cat $oDir/infiles.txt);do
-        echo -ne "${blue}RUNNING SPAdes WITH "${s}" FASTQ files${nc}"
+        echo -e "${blue}RUNNING SPAdes WITH "${s}" FASTQ files${nc}"
         mkdir -p $oDir/00_spades/
         $spades \
         -1 $rDir/${s}_*1.fastq \
@@ -191,7 +183,7 @@ if [[ "$STEP" == 0 || "$mode" == "complete" ]]; then
         --meta \
         -t $threads \
         -m $mem
-    
+
         #move assembly from tmp to 00_spades directory
         mv $oDir/tmp/contigs.fasta $oDir/00_spades/${s}_contigs.fasta
         mv $oDir/tmp/scaffolds.fasta $oDir/00_spades/${s}_scaffolds.fasta
@@ -210,7 +202,7 @@ if [[ "$STEP" == 1 || "$mode" == "complete" ]]; then
     echo ""
     echo ""
     for s in $(cat $oDir/infiles.txt);do
-        echo -ne "${blue}RUNNING metaviralSPAdes WITH "${s}" FASTQ files${nc}"  
+        echo -e "${blue}RUNNING metaviralSPAdes WITH "${s}" FASTQ files${nc}"  
         mkdir -p $oDir/01_metaviralspades      
         python3 $metaviralspades \
         -1 $rDir/${s}_*1.fastq \
@@ -225,6 +217,9 @@ if [[ "$STEP" == 1 || "$mode" == "complete" ]]; then
         mv $oDir/tmp/contigs.paths $oDir/01_metaviralspades/${s}_contigs.paths
         mv $oDir/tmp/scaffolds.paths $oDir/01_metaviralspades/${s}_scaffolds.paths
         rm -rf $oDir/tmp 
+
+        mkdir -p $oDir/03.1_all_viral_contigs
+        sed 's/>.*/&_metaviralspades/' $oDir/01_metaviralspades/${s}_contigs.fasta > $oDir/03.1_all_viral_contigs/${s}/${s}.phage_contigs_metaviralspades.fna
     done
 fi
 
@@ -238,7 +233,7 @@ if [[ "$STEP" == 2 || "$mode" == "complete" ]]; then
     echo ""
     singularity run $virsorter2 config --set HMMSEARCH_THREADS=$threads #configure threads for hmmsearch
     for s in $(cat $oDir/infiles.txt);do
-        echo -ne "${blue}RUNNING Virsorter2 WITH ${green} "${s}" ${blue} files${nc}"
+        echo -e "${blue}RUNNING Virsorter2 WITH ${green} "${s}" ${blue} files${nc}"
         singularity run $virsorter2 \
         run \
         -w $oDir/02_Virsorter2/tmp \
@@ -247,12 +242,12 @@ if [[ "$STEP" == 2 || "$mode" == "complete" ]]; then
         --min-length $minlength \
         -j $threads
 
-        mv $oDir/02_Virsorter2/tmp/*.fa $oDir/02_Virsorter2/${s}_virsorter.fasta
+        mv $oDir/02_Virsorter2/tmp/*.fa* $oDir/02_Virsorter2/${s}_virsorter.fasta
         mv $oDir/02_Virsorter2/tmp/final-viral-score.tsv $oDir/02_Virsorter2/${s}_virsorter_viral_score.tsv
-        rm -rf $oDir/02_Virsorter2/tmp
+        #rm -rf $oDir/02_Virsorter2/tmp
 
-        mkdir -p $oDir/03_all_viral_contigs    
-        sed 's/>.*/&_virsorter2/' $oDir/02_Virsorter2/${s}_virsorter.fasta > $oDir/03_all_viral_contigs/${s}_virsorter.fasta 
+        mkdir -p $oDir/03.1_all_viral_contigs    
+        sed 's/>.*/&_virsorter2/' $oDir/02_Virsorter2/${s}_virsorter.fasta > $oDir/03_all_viral_contigs/${s}/${s}.phage_contigs_virsorter.fna
     done
 fi
 
@@ -275,7 +270,6 @@ if [[ "$STEP" == 3 || "$mode" == "complete" ]]; then
         -no_plot \
         -l $minlength
 
-
         #keep important files only
         mv $oDir/03_vibrant/tmp/*.phages_combined.fna $oDir/03_vibrant/${s}/${s}.phages_combined_vibrant.fna
         mv $oDir/03_vibrant/tmp/*.phages_combined.faa $oDir/03_vibrant/${s}/${s}.phages_combined_vibrant.faa
@@ -286,8 +280,8 @@ if [[ "$STEP" == 3 || "$mode" == "complete" ]]; then
         mv ${s}_contigs.phages_combined.txt $oDir/03_vibrant/${s}/${s}_contigs.phages_combined.txt
         rm -rf $oDir/03_vibrant/tmp
 
-        mkdir -p $oDir/03_all_viral_contigs/
-        sed 's/>.*/&_vibrant/' $oDir/03_vibrant/${s}/${s}.phages_combined.fna > $oDir/03_all_viral_contigs/${s}.phages_combined_vibrant.fna
+        mkdir -p $oDir/03.1_all_viral_contigs/
+        sed 's/>.*/&_vibrant/' $oDir/03_vibrant/${s}/${s}.phages_combined.fna > $oDir/03.1_all_viral_contigs/${s}/${s}.phages_contigs_vibrant.fna
     done
 fi
 
@@ -300,50 +294,43 @@ if [[ "$STEP" == 4 || "$mode" == "complete" ]]; then
     echo ""
     echo ""
 
-    #combine all contigs into one multifasta per metagenome
-    cat $oDir/03_all_viral_contigs/*.fasta > $oDir/03_all_viral_contigs/combined_phages.fasta
-
-    for s in $(cat $oDir/infiles.txt);do
-        echo -e "${blue}cehcking viruses of${green} "${s}" ${blue}metagenome${nc}"
+    (cd $oDir/03.1_all_viral_contigs && ls -d */ | cut -f1 -d'/' > $oDir/03.1_all_viral_contigs/infiles.txt) #list all folders in target directory
+    
+    for i in $(cat $oDir/03.1_all_viral_contigs/infiles.txt); do #copy all potential virus contigs of iteration into one directory
+        cat $oDir/03.1_all_viral_contigs/${i}/*.f* > $oDir/03.1_all_viral_contigs/${i}_combined_contigs.fna #combine all contigs into one multifasta per metagenome    
+    done
+    #rm -rf $oDir/03.1_all_viral_contigs/${i}
+    
+    for i in $(cat $oDir/03.1_all_viral_contigs/infiles.txt); do
+        echo -e "${blue}checking viruses of${green} "${i}" ${blue}metagenome${nc}"
         checkv end_to_end \
-        $oDir/03_all_viral_contigs/combined_phages.fasta \
-        $oDir/04_checkv/${s} \
+        $oDir/03.1_all_viral_contigs/${i}_combined_contigs.fna \
+        $oDir/04_checkv/${i} \
         -t $threads \
-        -d $checkvdb;
+        -d $checkvdb
+        rm -rf $oDir/04_checkv/${i}/tmp
 
-        ##############################
+        echo -e "${blue}CheckV finished${nc}"
+
+        ############################################################
         #Quality filtering and binning
-        ##############################
+        ############################################################
+        
         #export variables for R script
-        export iter=$s
+        export iter=$i
         export oDir=$oDir
-        export currentDir=$oDir/03_all_viral_contigs/
-        export compl=$compl
         export minlength=$minlength
-
         ######debugging messages######
         echo -e "EXPORT PARAMETERS:"
         echo -e "${green}#####"
         echo -e "1 (iteration): "$iter""
         echo -e "2 (output dir): "$oDir""
-        echo -e "3 (current dir): "$currentDir""
-        echo -e "4 (completeness): "$compl""
         echo -e "5 (min length): "$minlength""
         echo -e "#####${nc}"
         ######
 
-        #Directories for filtered results from R script
-        mkdir -p $oDir/04_checkv//q_filtered_contigs
-        mkdir -p $oDir/04_checkv//length_filtered_contigs
-        mkdir -p $oDir/04_checkv//high_quality_contigs
-        mkdir -p $oDir/04_checkv//med_quality_contigs
-        mkdir -p $oDir/04_checkv//low_quality_contigs
-        mkdir -p $oDir/04_checkv//high_score_contigs
-        mkdir -p $oDir/04_checkv//qc_tables
-        mkdir -p $oDir/04_checkv//complete_phages_contigs
-        mkdir -p $oDir/04_checkv//VirHostMatcher/${s};
         
-        echo -e "${green} Quality Filtering of Phages from "${s}" Metagenome ${nc}"
+        echo -e "${green} Quality Filtering of Phages from "${i}" Metagenome ${nc}"
         #source R script
         Rscript /bioinf/home/benedikt.heyerhoff/checkv_output_score_filtering.R
     done
@@ -357,13 +344,22 @@ if [[ "$STEP" == 5 ]]; then
     echo -e "${green} Next step: FastANI ${nc}"
     echo ""
     echo ""
-    #for s in $(cat $oDir/infiles.txt);do
-    #done
 
-
-
-
-
+    mkdir -p $oDir/05_fastANI #make output directory
+    (cd $oDir/04_checkv && ls -d */ | cut -f1 -d'/' > $oDir/05_fastANI/infiles.txt) #list all folders in target directory
+   
+    
+    for i in $(cat $oDir/05_fastANI/infiles.txt); do
+        mkdir -p $oDir/05_fastANI/${i}
+        cat $oDir/04_checkv/${i}/phages/*.f* > $oDir/05_fastANI/${i}/${i}.combined_phages.fna
+    done
+    
+    echo -e "${blue}Comparing Phages in "${i}" with FastANI ${nc}"
+    for s in $(cat $oDir/05_fastANI/infiles.txt);do
+        $fastANI --ql $oDir/05_fastANI/${i}/${i}.combined_phages.fna \
+        --rl $oDir/05_fastANI/${i}/${i}.combined_phages.fna \
+        -o $oDir/05_fastANI/${i}/${i}.fastANI.out
+    done
 fi
 
 
@@ -475,9 +471,9 @@ if [[ "$STEP" == 9 ]]; then
     echo ""
 
     for s in $(cat $oDir/infiles.txt);do
-            mkdir -p $oDir/gene2genome/${s}
-            vcontact2_gene2genome -p $oDir/prodigal/proteins/${s}_proteins.faa -o $oDir/gene2genome/${s}/${s}_viral_genomes_g2g.csv -s 'Prodigal-FAA'
-            echo -e "\e[42mFinished gene2genome step ${nc}"
+        mkdir -p $oDir/gene2genome/${s}
+        vcontact2_gene2genome -p $oDir/prodigal/proteins/${s}_proteins.faa -o $oDir/gene2genome/${s}/${s}_viral_genomes_g2g.csv -s 'Prodigal-FAA'
+        echo -e "\e[42mFinished gene2genome step ${nc}"
     done
 
     echo -e "${green} Next step: Vcontact2 ${nc}"
