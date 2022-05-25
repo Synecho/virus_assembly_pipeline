@@ -26,6 +26,7 @@ BgGreen='\e[42m'
 
 groups=dsDNAphage,NCLDV,RNA,ssDNA,lavidaviridae # viral groups for virsorter2
 minlength=1500                                  # default minimum viral contig length in bp
+id=95                                           # default minimum viral squence identity for clustering
 mem=500                                         # memory for SPAdes assembly in GB
 threads=80                                      # Num threads to be used                                  
 ################################################################################################################################
@@ -58,6 +59,11 @@ shift
 minlength=$1
 shift
 ;;
+-id)
+shift
+id=1
+shift
+;;
 -mem)
 shift
 mem=$1
@@ -79,6 +85,7 @@ echo "-t [INT]: number of threads allocated for the process. Default: 80"
 echo "-mem [INT]: Memory for SPAdes assembly in GB (Default 500 GB)"
 echo "-idx: output mapped read abundance as .txt file"
 echo "-minlength [INT]: parameter for min viral contig length in base pairs. Will filter >=[minlength] Default=1500 bp"
+echo "-id [INT]: Minimum sequence identity between identified phages. Default: 95 "
 echo "-groups: Viral groups for virsorter2. Add comma separated after -group flag. Available: dsDNAphage,NCLDV,RNA,ssDNA,lavidaviridae. Default: All groups listed"
 echo ""
 echo ""
@@ -219,7 +226,7 @@ if [[ "$STEP" == 1 || "$mode" == "complete" ]]; then
         rm -rf $oDir/tmp 
 
         mkdir -p $oDir/03.1_all_viral_contigs
-        sed 's/>.*/&_metaviralspades/' $oDir/01_metaviralspades/${s}_contigs.fasta > $oDir/03.1_all_viral_contigs/${s}/${s}.phage_contigs_metaviralspades.fna
+        sed 's/>.*/&|metaviralspades/' $oDir/01_metaviralspades/${s}_contigs.fasta > $oDir/03.1_all_viral_contigs/${s}/${s}.phage_contigs_metaviralspades.fna
     done
 fi
 
@@ -240,6 +247,7 @@ if [[ "$STEP" == 2 || "$mode" == "complete" ]]; then
         -i $oDir/00_spades/${s}_contigs.fasta \
         --include-groups $groups \
         --min-length $minlength \
+        --keep-original-seq \
         -j $threads
 
         mv $oDir/02_Virsorter2/tmp/*.fa* $oDir/02_Virsorter2/${s}_virsorter.fasta
@@ -247,7 +255,7 @@ if [[ "$STEP" == 2 || "$mode" == "complete" ]]; then
         #rm -rf $oDir/02_Virsorter2/tmp
 
         mkdir -p $oDir/03.1_all_viral_contigs    
-        sed 's/>.*/&_virsorter2/' $oDir/02_Virsorter2/${s}_virsorter.fasta > $oDir/03_all_viral_contigs/${s}/${s}.phage_contigs_virsorter.fna
+        sed 's/>.*/&|virsorter2/' $oDir/02_Virsorter2/${s}_virsorter.fasta > $oDir/03.1_all_viral_contigs/${s}/${s}.phage_contigs_virsorter.fna
     done
 fi
 
@@ -281,7 +289,7 @@ if [[ "$STEP" == 3 || "$mode" == "complete" ]]; then
         rm -rf $oDir/03_vibrant/tmp
 
         mkdir -p $oDir/03.1_all_viral_contigs/
-        sed 's/>.*/&_vibrant/' $oDir/03_vibrant/${s}/${s}.phages_combined.fna > $oDir/03.1_all_viral_contigs/${s}/${s}.phages_contigs_vibrant.fna
+        sed 's/>.*/&|vibrant/' $oDir/03_vibrant/${s}/${s}.phages_combined.fna > $oDir/03.1_all_viral_contigs/${s}/${s}.phages_contigs_vibrant.fna
     done
 fi
 
@@ -302,7 +310,7 @@ if [[ "$STEP" == 4 || "$mode" == "complete" ]]; then
     #rm -rf $oDir/03.1_all_viral_contigs/${i}
     
     for i in $(cat $oDir/03.1_all_viral_contigs/infiles.txt); do
-        echo -e "${blue}checking viruses of${green} "${i}" ${blue}metagenome${nc}"
+        echo -e "${blue}checking quality of viruses in${green} "${i}" ${blue}metagenome${nc}"
         checkv end_to_end \
         $oDir/03.1_all_viral_contigs/${i}_combined_contigs.fna \
         $oDir/04_checkv/${i} \
@@ -321,7 +329,7 @@ if [[ "$STEP" == 4 || "$mode" == "complete" ]]; then
         export oDir=$oDir
         export minlength=$minlength
         ######debugging messages######
-        echo -e "EXPORT PARAMETERS:"
+        echo -e "${green}EXPORT PARAMETERS:"
         echo -e "${green}#####"
         echo -e "1 (iteration): "$iter""
         echo -e "2 (output dir): "$oDir""
@@ -347,22 +355,32 @@ if [[ "$STEP" == 5 ]]; then
 
     mkdir -p $oDir/05_fastANI #make output directory
     (cd $oDir/04_checkv && ls -d */ | cut -f1 -d'/' > $oDir/05_fastANI/infiles.txt) #list all folders in target directory
-   
-    
+
+    for s in $(cat $oDir/05_fastANI/infiles.txt); do
+        cd $oDir/04_checkv/${s}/phages && ls | xargs readlink -f | uniq > $oDir/05_fastANI/fastANI_phage_files.txt
+    done
+       
+    echo -e "${blue}Comparing Phages in "${i}" with FastANI ${nc}"
     for i in $(cat $oDir/05_fastANI/infiles.txt); do
         mkdir -p $oDir/05_fastANI/${i}
-        cat $oDir/04_checkv/${i}/phages/*.f* > $oDir/05_fastANI/${i}/${i}.combined_phages.fna
-    done
-    
-    echo -e "${blue}Comparing Phages in "${i}" with FastANI ${nc}"
-    for s in $(cat $oDir/05_fastANI/infiles.txt);do
-        $fastANI --ql $oDir/05_fastANI/${i}/${i}.combined_phages.fna \
-        --rl $oDir/05_fastANI/${i}/${i}.combined_phages.fna \
-        -o $oDir/05_fastANI/${i}/${i}.fastANI.out
+        $fastANI --ql $oDir/05_fastANI/fastANI_phage_files.txt \
+        --rl $oDir/05_fastANI/fastANI_phage_files.txt \
+        -o $oDir/05_fastANI/${i}/${i}.fastANI_out.txt \
+        -t $threads
+
+        #export variables for R script
+        export iter=$i
+        export oDir=$oDir
+        export id=$id
+        ######debugging messages######
+        echo -e "${green}EXPORT PARAMETERS:"
+        echo -e "${green}#####"
+        echo -e "1 (iteration): "$iter""
+        echo -e "2 (output dir): "$oDir""
+        echo -e "#####${nc}"
+        ######
     done
 fi
-
-
 
 ####################################### Contig Mapping ##################################
 if [[ "$STEP" == 6 ]]; then
@@ -405,7 +423,7 @@ if [[ "$STEP" == 6 ]]; then
         echo -e "Creating, sorting and indexing ${green}"$s".bam${nc} file..."
         mkdir -p $oDir/map 
         samtools index -@ $threads $oDir/bam/${s}.sorted.bam 
-        samtools idxstats $oDir/bam/${s}.sorted.bam  > $oDir/06_map/${s}.mapped.txt
+        samtools idxstats $oDir/bam/${s}.sorted.bam > $oDir/06_map/${s}.mapped.txt
         rm $oDir/bam/${s}.sorted.bam 
 
 
