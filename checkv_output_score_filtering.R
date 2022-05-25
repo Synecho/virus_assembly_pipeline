@@ -117,7 +117,6 @@ dir.create(directory, showWarnings = TRUE)
 
 for (i in 1:length(seq_dfs)){
   if (lengths(qc_list_seq[i]) >= 1) {#only export if there is something in the list
-    names(qc_list_seq[[i]]) = paste(names(qc_list_seq[[i]]), "checkv", seq_dfs[i], sep = "_")
     for(k in 1:length(qc_list_seq[[i]])){
       export = qc_list_seq[[i]][k]
       if (str_detect(names(export), "lt2gene") == TRUE) {
@@ -125,10 +124,10 @@ for (i in 1:length(seq_dfs)){
         next
       }
       
-      if (str_detect(names(export), "||full") == TRUE) {
+      if (str_detect(names(export), "full") == TRUE) {
         names(export) = gsub("(virsorter2).*", "\\1", names(export))
         n = gsub("\\||full\\|virsorter2", "", names(export))
-        n = paste0(n, "|virsorter2", "_",
+        n = paste0(n, "|virsorter2|",
                    ifelse(quality[which(quality == names(export)), "provirus"] == "Yes", paste0("provirus_"), 
                           paste0(quality[which(quality == names(export)), "contig_length"], "bp", "_", 
                                  quality[which(quality == names(export)), "checkv_quality"])))
@@ -139,7 +138,7 @@ for (i in 1:length(seq_dfs)){
       
       if (str_detect(names(export), "partial") == TRUE) {
         n = gsub("\\||_partial\\|virsorter2", "", names(export))
-        n = paste0(n, "|virsorter2", "_", 
+        n = paste0(n, "|virsorter2|",
                    ifelse(quality[which(quality == names(export)), "provirus"] == "Yes", paste0("provirus_"), 
                           paste0(quality[which(quality == names(export)), "contig_length"], "bp", "_", 
                                  quality[which(quality == names(export)), "checkv_quality"])))
@@ -148,9 +147,9 @@ for (i in 1:length(seq_dfs)){
         names(export) = n
       }
       
-      if (str_detect(names(export), "|vibrant") == TRUE) {
+      if (str_detect(names(export), "vibrant") == TRUE) {
         n = gsub("\\|vibrant", "", names(export))
-        n = paste0(n, "|vibrant", "_", 
+        n = paste0(n, "|vibrant|",
                    ifelse(quality[which(quality == names(export)), "provirus"] == "Yes", paste0("provirus_"), 
                           paste0(quality[which(quality == names(export)), "contig_length"], "bp", "_", 
                                  quality[which(quality == names(export)), "checkv_quality"])))
@@ -159,10 +158,10 @@ for (i in 1:length(seq_dfs)){
         names(export) = n
       }
       
-      if (str_detect(names(export), "|metaviralspades") == TRUE) {
+      if (str_detect(names(export), "metaviralspades") == TRUE) {
         n = gsub("\\|metaviralspades", "", names(export))
         n = gsub("_cutoff.*", "", n)
-        n = paste0(n, "|metaviralspades", "_", 
+        n = paste0(n, "|metaviralspades|",
                    ifelse(quality[which(quality == names(export)), "provirus"] == "Yes", paste0("provirus_"), 
                           paste0(quality[which(quality == names(export)), "contig_length"], "bp", "_", 
                                  quality[which(quality == names(export)), "checkv_quality"])))
@@ -170,7 +169,6 @@ for (i in 1:length(seq_dfs)){
         #complete or partial to name so it can be exported as fasta header
         names(export) = n
       }
-
       file = file.path(directory, print(paste0(names(export), ".fna")))
       write.fasta(export, names(export), file, open = "w")
     }
