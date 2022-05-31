@@ -28,7 +28,8 @@ groups=dsDNAphage,NCLDV,RNA,ssDNA,lavidaviridae # viral groups for virsorter2
 minlength=1500                                  # default minimum viral contig length in bp
 id=95                                           # default minimum viral squence identity for clustering
 mem=500                                         # memory for SPAdes assembly in GB
-threads=80                                      # Num threads to be used                                  
+threads=80                                      # Num threads to be used   
+
 ################################################################################################################################
 #                                                          Options                                                             #
 ################################################################################################################################ 
@@ -42,11 +43,6 @@ shift
 -o)
 shift
 oDir=$1
-shift
-;;
--idx)
-shift
-idx=1
 shift
 ;;
 -t)
@@ -73,21 +69,29 @@ shift
 shift
 groups=$1
 shift
+;;
+-hosts)
+shift
+hosts=$1
+shift
 ;;                                     
 -h|--help)
-echo "This script uses Bowtie2 (very-sensitive mode) and samtools to map paired Illumina reads to assembled contigs and outputs .sam, .bam and, if the -idx option is set read abuandance files."
+echo ""
 echo "USAGE:"
+echo "NOTE: If you are starting with raw read fastq files, the must be named: your_file_name_R1.fastq, your_file_name_R2.fastq"
+echo "NOTE: If you are starting with assembld contigs they may have a .fasta or .fna file ending"
+echo ""
+echo ""
+echo "INPUT PARAMETERS:"
 echo "-r or -rDir [PATH]: define path to a directory containing quality quality checked reads from Illumina sequencing (mandatory)"
 echo "-c or -cDir [PATH]: define path to a directory containing corresponding assembled contigs from the reads used for mapping (mandatory)"
-echo "NOTE: file names should be: XZY_R1.fastq XZY_R2.fastq for reads and XZY_contigs.fasta"
 echo "-o [PATH]: Directory in which results will be saved. Default: ./"
 echo "-t [INT]: number of threads allocated for the process. Default: 80"
 echo "-mem [INT]: Memory for SPAdes assembly in GB (Default 500 GB)"
-echo "-idx: output mapped read abundance as .txt file"
 echo "-minlength [INT]: parameter for min viral contig length in base pairs. Will filter >=[minlength] Default=1500 bp"
 echo "-id [INT]: Minimum sequence identity between identified phages. Default: 95 "
 echo "-groups: Viral groups for virsorter2. Add comma separated after -group flag. Available: dsDNAphage,NCLDV,RNA,ssDNA,lavidaviridae. Default: All groups listed"
-echo ""
+echo "-hosts: [Mandatory] Hostlists available: marinehostlist generalhostlist"
 echo ""
 echo ""
 echo ""
@@ -118,9 +122,6 @@ echo "8: Bacphlip"
 echo "complete"
 echo "10: ViPTreeGen"
 echo "11: Vcontact2"
-
-
-
 echo "12: DIAMOND Blastp ViralRefSeq"
 
 
@@ -137,8 +138,9 @@ checkvdb=/home/benedikth/checkv-db-v1.0
 cluster1=/bioinf/home/benedikt.heyerhoff/Resources/vcontact2/bin/cluster_one-1.0.jar
 vcontact2_tax_predict=/bioinf/home/benedikt.heyerhoff/Resources/vcontact2_tax_predict.py 
 VirHostMatcher=/bioinf/home/benedikt.heyerhoff/Resources/VirHostMatcher-Net/VirHostMatcher-Net.py
-viralrefseq=/bioinf/home/benedikt.heyerhoff/Resources/database/viral.3.protein.faa
 marinehostlist=/bioinf/home/benedikt.heyerhoff/Resources/VirHostMatcher-Net/genome_list/marine_host_list.txt
+generalhostlist=/bioinf/home/benedikt.heyerhoff/Resources/VirHostMatcher-Net/genome_list/hmp_host_list.txt
+viralrefseq=/bioinf/home/benedikt.heyerhoff/Resources/database/viral.3.protein.faa
 virhostmatcherdata=/bioinf/home/benedikt.heyerhoff/Resources/VirHostMatcher-Net/data
 vibrant=/bioinf/home/benedikt.heyerhoff/Resources/VIBRANT/VIBRANT_run.py
 fastANI=/bioinf/home/benedikt.heyerhoff/Resources/FastANI/fastANI
@@ -382,26 +384,32 @@ if [[ "$STEP" == 5 ]]; then
     done
 fi
 
-####################################### Contig Mapping ##################################
+###################################################################################################################################
+# MODE: Bowtie2                                                                                                                   #
+###################################################################################################################################
+
 if [[ "$STEP" == 6 ]]; then
     echo -e "${green} Next step: Bowtie2 ${nc}"
     echo ""
     echo ""
-
-    contigs=$( cd $oDir/04_checkv/length_filtered_contigs && ls *.f* ) | awk 'BEGIN{FS=OFS="_"}{NF--; print}' | wc -l
-    reads=$( cd $rDir && ls *.fa* ) | awk 'BEGIN{FS=OFS="_"}{NF--; print}' | uniq -d | wc -l
-
-    mkdir -p $oDir/bam
-    mkdir -p $oDir/sam
-    mkdir -p $oDir/temp
-    ls $rDir
-
+    
+    mkdir -p $oDir/06_bowtie2 #make output directory
+    mkdir -p $oDir/06_bowtie2/bam
+    mkdir -p $oDir/06_bowtie2/sam
+    mkdir -p $oDir/06_bowtie2/temp
+    
     #( cd $rDir && ls *.fastq ) | awk 'BEGIN{FS=OFS="_"}{NF--; print}' | uniq -d > $oDir/temp/files.txt
+    (cd $oDir/05_fastANI && ls -d */ | cut -f1 -d'/' > $oDir/06_bowtie2/infiles.txt) #list all folders in target directory
+    for s in $(cat $oDir/06_bowtie2/infiles.txt);do
 
-    for s in $(cat $oDir/remap.txt);do
+        #make arrays
+        reads=$( cd $rDir && ls *.f* ) | awk 'BEGIN{FS=OFS="_"}{NF--; print}' | uniq -d | wc -l
+        #contigs=$( cd $oDir/05_fastANI/${s}/phages && ls *.f* ) | awk 'BEGIN{FS=OFS="_"}{NF--; print}' | wc -l
+
         echo -e "Bulding bowtie2 database from ${green}"${s}"_contigs.fasta${nc} ..."
-        bowtie2-build $oDir/04_checkv/length_filtered_contigs/${s}.fna $oDir/temp/Bowtie2.db
-        DB=$oDir/temp/Bowtie2.db
+        cat $oDir/05_fastANI/${s}/phages/*.fna > $oDir/05_fastANI/${s}/phages/${s}_phages.fna
+        bowtie2-build $oDir/05_fastANI/${s}/phages/${s}_phages.fna $oDir/06_bowtie2/temp/Bowtie2.db
+        DB=$oDir/06_bowtie2/temp/Bowtie2.db
 
         echo
         echo -e ${blue}"Mapping reads from ${green}"$s"_R1.fastq${nc} and ${green}"$s"_R2.fastq${nc} to database..." 
@@ -410,46 +418,76 @@ if [[ "$STEP" == 6 ]]; then
         -1 $rDir/${s}_*1.fastq \
         -2 $rDir/${s}_*2.fastq \
         -p $threads \
-        -S $oDir/temp/${s}.sam
+        -S $oDir/06_bowtie2/temp/${s}.sam
 
         echo -e "Reformating ${green}"$s".sam${nc} to ${green}"$s".bam${nc} ..."
-        samtools view -@ $threads -b -S $oDir/temp/${s}.sam > $oDir/bam/${s}.bam
+        samtools view -@ $threads -b -S $oDir/06_bowtie2/temp/${s}.sam > $oDir/06_bowtie2/bam/${s}.bam
         echo -e "Deleting ${green}"$s".sam${nc}..."
         rm $oDir/temp/${s}.sam
         echo -e "Sorting ${green}"$s".bam${nc}..."
-        samtools sort -@ $threads $oDir/bam/${s}.bam > $oDir/bam/${s}.sorted.bam 
-        rm $oDir/bam/${s}.bam
+        samtools sort -@ $threads $oDir/06_bowtie2/bam/${s}.bam > $oDir/06_bowtie2/bam/${s}.sorted.bam 
+        rm $oDir/06_bowtie2/bam/${s}.bam
 
         echo -e "Creating, sorting and indexing ${green}"$s".bam${nc} file..."
         mkdir -p $oDir/map 
-        samtools index -@ $threads $oDir/bam/${s}.sorted.bam 
-        samtools idxstats $oDir/bam/${s}.sorted.bam > $oDir/06_map/${s}.mapped.txt
-        rm $oDir/bam/${s}.sorted.bam 
+        samtools index -@ $threads $oDir/06_bowtie2/bam/${s}.sorted.bam 
+        samtools idxstats $oDir/06_bowtie2/bam/${s}.sorted.bam > $oDir/06_bowtie2/${s}.mapped.txt
+        rm $oDir/06_bowtie2/bam/${s}.sorted.bam 
 
 
         echo ""
         echo -e "Finished mapping of ${green}"$s"${nc}!";
     done 
-    rm -rf $oDir/temp/
+    rm -rf $oDir/06_bowtie2/temp
+    rm -rf $oDir/06_bowtie2/bam
+    rm -rf $oDir/06_bowtie2/sam
+    rm $oDir/05_fastANI/${s}/phages/${s}_phages.fna
 fi
 
-################################## VirHostMatcher-Net ###################################
+###################################################################################################################################
+# MODE: VirHostMatcher-Net                                                                                                        #
+###################################################################################################################################
+
 if [[ "$STEP" == 7 ]]; then
     echo -e "${green} Next step: VirHostMatcher-net ${nc}"
+    echo -e "Using" $hosts "as reference host list"
     echo ""
     echo ""
-    mkdir -p $oDir/07_VirHostMatcher/temp #tempdir for VirHostMatcher-Net
-    for s in $(cat $oDir/infiles.txt);do
-        python3 $VirHostMatcher \
-        -q $oDir/04_checkv/VirHostMatcher/${s} \
-        --short-contig \
-        -o $oDir/07_VirHostMatcher/${s} \
-        -n 1 \
-        -t $threads \
-        -l $marinehostlist \
-        -i $oDir/07_VirHostMatcher/temp \
-        -d $virhostmatcherdata;    
-    done
+
+    mkdir -p $oDir/07_VirHostMatcher
+    mkdir -p $oDir/07_VirHostMatcher/temp
+    (cd $oDir/05_fastANI && ls -d */ | cut -f1 -d'/' > $oDir/07_VirHostMatcher/infiles.txt) #list all folders in target directory
+    
+    if [[ "$hosts" == "marinehostlist" ]]; then
+
+        for s in $(cat $oDir/07_VirHostMatcher/infiles.txt);do
+            mkdir -p $oDir/07_VirHostMatcher/${s}
+            python3 $VirHostMatcher \
+            -q $oDir/05_fastANI/${s}/phages \
+            --short-contig \
+            -o $oDir/07_VirHostMatcher/${s} \
+            -n 1 \
+            -t $threads \
+            -l $marinehostlist \
+            -i $oDir/07_VirHostMatcher/temp \
+            -d $virhostmatcherdata;    
+        done
+    fi
+    if [[ "$hosts" == "generalhostlist" ]]; then
+
+        for s in $(cat $oDir/07_VirHostMatcher/infiles.txt);do
+            mkdir -p $oDir/07_VirHostMatcher/${s}
+            python3 $VirHostMatcher \
+            -q $oDir/05_fastANI/${s}/phages \
+            --short-contig \
+            -o $oDir/07_VirHostMatcher/${s} \
+            -n 1 \
+            -t $threads \
+            -l $generalhostlist \
+            -i $oDir/07_VirHostMatcher/temp \
+            -d $virhostmatcherdata;    
+        done
+    fi
 fi
 
 ##################################### BACPHLIP ########################################
