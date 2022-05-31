@@ -110,7 +110,7 @@ for (i in 1:length(dfs)){
 rm(directory, i)#remove directory variable
 
 
-print(paste("EXPORTING PER GENOME FASTA FILES"))
+print(paste("EXPORTING PER GENOME/FRAGMENT FASTA FILES"))
 #creating export directory
 directory = file.path(oDir,"04_checkv", iter, "phages")#make export path
 dir.create(directory, showWarnings = TRUE)
@@ -128,7 +128,9 @@ for (i in 1:length(seq_dfs)){
         names(export) = gsub("(virsorter2).*", "\\1", names(export))
         n = gsub("\\||full\\|virsorter2", "", names(export))
         n = paste0(n, "|virsorter2|",
-                   ifelse(quality[which(quality == names(export)), "provirus"] == "Yes", paste0("provirus_"), 
+                   ifelse(quality[which(quality == names(export)), "provirus"] == "Yes", 
+                          paste0(quality[which(quality == names(export)), "contig_length"], "bp", "_",
+                                 quality[which(quality == names(export)), "checkv_quality"], "_provirus"), 
                           paste0(quality[which(quality == names(export)), "contig_length"], "bp", "_", 
                                  quality[which(quality == names(export)), "checkv_quality"])))
         #find the name of current iteration in quality dataframe and add contig quality, length and if
@@ -139,7 +141,9 @@ for (i in 1:length(seq_dfs)){
       if (str_detect(names(export), "partial") == TRUE) {
         n = gsub("\\||_partial\\|virsorter2", "", names(export))
         n = paste0(n, "|virsorter2|",
-                   ifelse(quality[which(quality == names(export)), "provirus"] == "Yes", paste0("provirus_"), 
+                   ifelse(quality[which(quality == names(export)), "provirus"] == "Yes", 
+                          paste0(quality[which(quality == names(export)), "contig_length"], "bp", "_",
+                                 quality[which(quality == names(export)), "checkv_quality"], "_provirus"), 
                           paste0(quality[which(quality == names(export)), "contig_length"], "bp", "_", 
                                  quality[which(quality == names(export)), "checkv_quality"])))
         #find the name of current iteration in quality dataframe and add contig quality, length and if
@@ -150,7 +154,9 @@ for (i in 1:length(seq_dfs)){
       if (str_detect(names(export), "vibrant") == TRUE) {
         n = gsub("\\|vibrant", "", names(export))
         n = paste0(n, "|vibrant|",
-                   ifelse(quality[which(quality == names(export)), "provirus"] == "Yes", paste0("provirus_"), 
+                   ifelse(quality[which(quality == names(export)), "provirus"] == "Yes", 
+                          paste0(quality[which(quality == names(export)), "contig_length"], "bp", "_",
+                                 quality[which(quality == names(export)), "checkv_quality"], "_provirus"), 
                           paste0(quality[which(quality == names(export)), "contig_length"], "bp", "_", 
                                  quality[which(quality == names(export)), "checkv_quality"])))
         #find the name of current iteration in quality dataframe and add contig quality, length and if
@@ -162,7 +168,9 @@ for (i in 1:length(seq_dfs)){
         n = gsub("\\|metaviralspades", "", names(export))
         n = gsub("_cutoff.*", "", n)
         n = paste0(n, "|metaviralspades|",
-                   ifelse(quality[which(quality == names(export)), "provirus"] == "Yes", paste0("provirus_"), 
+                   ifelse(quality[which(quality == names(export)), "provirus"] == "Yes", 
+                          paste0(quality[which(quality == names(export)), "contig_length"], "bp", "_",
+                                 quality[which(quality == names(export)), "checkv_quality"], "_provirus"), 
                           paste0(quality[which(quality == names(export)), "contig_length"], "bp", "_", 
                                  quality[which(quality == names(export)), "checkv_quality"])))
         #find the name of current iteration in quality dataframe and add contig quality, length and if

@@ -329,7 +329,7 @@ if [[ "$STEP" == 4 || "$mode" == "complete" ]]; then
         export oDir=$oDir
         export minlength=$minlength
         ######debugging messages######
-        echo -e "${green}EXPORT PARAMETERS:"
+        echo -e "${green}R EXPORT PARAMETERS:"
         echo -e "${green}#####"
         echo -e "1 (iteration): "$iter""
         echo -e "2 (output dir): "$oDir""
@@ -373,7 +373,7 @@ if [[ "$STEP" == 5 ]]; then
         export oDir=$oDir
         export id=$id
         ######debugging messages######
-        echo -e "${green}EXPORT PARAMETERS:"
+        echo -e "${green}R EXPORT PARAMETERS:"
         echo -e "${green}#####"
         echo -e "1 (iteration): "$iter""
         echo -e "2 (output dir): "$oDir""
