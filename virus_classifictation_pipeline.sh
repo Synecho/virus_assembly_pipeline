@@ -57,7 +57,7 @@ shift
 ;;
 -id)
 shift
-id=1
+id=$1
 shift
 ;;
 -mem)
@@ -109,7 +109,9 @@ esac
 done
 
 ################################## Modular Script #######################################
+echo -e "${green}"
 echo "Modules of the Virus Pipeline:"
+echo -e "${blue}"
 echo "0: SPAdes"
 echo "1: Metaviralspades"
 echo "2: Virsorter2"
@@ -123,10 +125,12 @@ echo "complete"
 echo "10: ViPTreeGen"
 echo "11: Vcontact2"
 echo "12: DIAMOND Blastp ViralRefSeq"
+echo -e "${nc}"
 
-
+echo -e "${red}"
 echo Run module: 
 read STEP
+echo -e "${nc}"
 
 ################################################################################################################################
 #                                          Paths to third-party software and databases                                         #
@@ -228,7 +232,7 @@ if [[ "$STEP" == 1 || "$mode" == "complete" ]]; then
         rm -rf $oDir/tmp 
 
         mkdir -p $oDir/03.1_all_viral_contigs
-        sed 's/>.*/&|metaviralspades/' $oDir/01_metaviralspades/${s}_contigs.fasta > $oDir/03.1_all_viral_contigs/${s}/${s}.phage_contigs_metaviralspades.fna
+        sed 's/>.*/&;;metaviralspades/' $oDir/01_metaviralspades/${s}_contigs.fasta > $oDir/03.1_all_viral_contigs/${s}/${s}.phage_contigs_metaviralspades.fna
     done
 fi
 
@@ -254,10 +258,18 @@ if [[ "$STEP" == 2 || "$mode" == "complete" ]]; then
 
         mv $oDir/02_Virsorter2/tmp/*.fa* $oDir/02_Virsorter2/${s}_virsorter.fasta
         mv $oDir/02_Virsorter2/tmp/final-viral-score.tsv $oDir/02_Virsorter2/${s}_virsorter_viral_score.tsv
-        #rm -rf $oDir/02_Virsorter2/tmp
+        rm -rf $oDir/02_Virsorter2/tmp
 
-        mkdir -p $oDir/03.1_all_viral_contigs    
-        sed 's/>.*/&|virsorter2/' $oDir/02_Virsorter2/${s}_virsorter.fasta > $oDir/03.1_all_viral_contigs/${s}/${s}.phage_contigs_virsorter.fna
+        #export variables for R script
+        export iter=$s
+        export oDir=$oDir
+        ######debugging messages######
+        echo -e "${green}R EXPORT PARAMETERS:"
+        echo -e "${green}#####"
+        echo -e "1 (iteration): "$iter""
+        echo -e "2 (output dir): "$oDir""
+        echo -e "#####${nc}"
+        Rscript /bioinf/home/benedikt.heyerhoff/virsorter2_output_editing.R
     done
 fi
 
@@ -291,7 +303,7 @@ if [[ "$STEP" == 3 || "$mode" == "complete" ]]; then
         rm -rf $oDir/03_vibrant/tmp
 
         mkdir -p $oDir/03.1_all_viral_contigs/
-        sed 's/>.*/&|vibrant/' $oDir/03_vibrant/${s}/${s}.phages_combined.fna > $oDir/03.1_all_viral_contigs/${s}/${s}.phages_contigs_vibrant.fna
+        sed 's/>.*/&;;vibrant/' $oDir/03_vibrant/${s}/${s}.phages_combined.fna > $oDir/03.1_all_viral_contigs/${s}/${s}.phages_contigs_vibrant.fna
     done
 fi
 
@@ -379,8 +391,10 @@ if [[ "$STEP" == 5 ]]; then
         echo -e "${green}#####"
         echo -e "1 (iteration): "$iter""
         echo -e "2 (output dir): "$oDir""
+        echo -e "2 (average nucleotide identity): "$id" "
         echo -e "#####${nc}"
         ######
+        Rscript /bioinf/home/benedikt.heyerhoff/fastANI_output_filtering.R
     done
 fi
 

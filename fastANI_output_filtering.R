@@ -1,21 +1,19 @@
-if(!require('dplyr'))install.packages('dplyr')
-if(!require('seqinr'))install.packages('seqinr')
-if(!require('stringr'))install.packages('stringr')
-if(!require('readr'))install.packages('readr')
-if(!require('gplots'))install.packages('gplots')
-if(!require('ComplexHeatmap'))install.packages('ComplexHeatmap')
-if(!require('reshape2'))install.packages('reshape2')
-if(!require('tidyverse'))install.packages('tidyverse')
+list.of.packages <- c( "seqinr", "gplots", "reshape2", "stringr", "readr", "dplyr", "BiocManager")
+new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
+if(length(new.packages)) install.packages(new.packages,
+                                          repos = "https://cran.uni-muenster.de/")
+if(!require(ComplexHeatmap, quietly=TRUE)){
+  BiocManager::install("ComplexHeatmap")
+}
 
-library(dplyr)
 library(seqinr)
-library(stringr)
-library(readr)
 library(reshape2)
 library(ComplexHeatmap)
 library(gplots)
-library(tidyverse)
-
+library(dplyr)
+library(stringr)
+library(readr)
+library(svglite)
 
 
 oDir = Sys.getenv("oDir")
@@ -26,6 +24,7 @@ print(paste("############################"))
 print(paste("R Script input parameters:"))
 print(paste("output dir =", oDir))
 print(paste("iteration =", iter))
+print(paste("average nucleotide identity =", id))
 print(paste("############################"))
 
 #set working directory
@@ -48,6 +47,7 @@ rm(file)
 #remove directory path from sequences so that its easier to work with them
 path = file.path(oDir, "04_checkv", iter, "phages/")
 path = "/bioinf/home/benedikt.heyerhoff/planktotrons_1/04_checkv/BENG-vm-1_S15_L001/phages/"
+#
 print(paste("CLEANING FastANI OUTPUT FILE"))
 for(i in 1:nrow(fastANI)){
   fastANI[i, "query_genome"] = gsub(paste0(path), "", fastANI[i, "query_genome"])
@@ -56,8 +56,14 @@ for(i in 1:nrow(fastANI)){
 rm(i)
 
 #Make a heatmap from FastANI output
-fastANI.matrix <- acast(fastANI, query_genome~reference_genome, value.var="ANI_value")
-fastANI.matrix[is.na(fastANI.matrix)] <- id
+fastANI.matrix = acast(fastANI, query_genome~reference_genome, value.var = "ANI_value")
+fastANI.matrix[is.na(fastANI.matrix)] = id
+
+#this whole numeric conversion has to be done because R on the cluster somehow converts the matrix to character...
+fastANI.matrix = as.data.frame(fastANI.matrix)
+fastANI.matrix[] <- lapply(fastANI.matrix, as.numeric)
+####
+
 #create breaks and gradient
 breaks = seq(min(fastANI.matrix), max(100), length.out=100)
 gradient1 = colorpanel( sum( breaks[-1] <= 95 ), "red", "white" )
@@ -67,10 +73,12 @@ cols = c(gradient1, gradient2)
 #path where heatmap will be exported to
 path = file.path(oDir, "05_fastANI", iter, "heatmaps")
 dir.create(path)
-#export as svg
-svg(paste0(path, "/", "all_contigs_FastANI_Heatmap.svg"))
-heatmap.2(fastANI.matrix, scale = "none", trace = "none", col = cols, cexRow=.30, cexCol=.30)
+
+#export as PDF
+pdf(paste0(path, "/", "all_contigs_FastANI_Heatmap.pdf"))
+  heatmap(as.matrix(fastANI.matrix), scale = "none", col = cols, cexRow=.30, cexCol=.30)
 dev.off()
+
 rm(fastANI.matrix, cols, gradient1, gradient2, path, breaks)
 
 #filter any entries with identity lower than $id from id input flag in shell script
@@ -81,8 +89,8 @@ fastANI %>%
 fastANI.id$query_length = NA
 fastANI.id$reference_length = NA
 for(i in 1:nrow(fastANI.id)) {
-  fastANI.id[i,"query_length"] = as.numeric(gsub(".*\\|([0-9]+)bp.*", "\\1", fastANI.id[i,"query_genome"]))
-  fastANI.id[i,"reference_length"] = as.numeric(gsub(".*\\|([0-9]+)bp.*", "\\1", fastANI.id[i,"reference_genome"]))
+  fastANI.id[i,"query_length"] = as.numeric(gsub(".*;([0-9]+)bp.*", "\\1", fastANI.id[i,"query_genome"]))
+  fastANI.id[i,"reference_length"] = as.numeric(gsub(".*;([0-9]+)bp.*", "\\1", fastANI.id[i,"reference_genome"]))
   }
 rm(i)
 
@@ -105,7 +113,10 @@ for(i in 1:length(phage.sequences)){
   phage.sequences[i] = toupper(phage.sequences[i])
 }
 rm(i)
-
+#################################'
+#################################'#################################'
+#################################'#################################'
+#################################'#################################'
 #quality score expansion
   #query
 fastANI.id$query_quality = gsub(".*bp_", "\\1",
@@ -115,6 +126,11 @@ fastANI.id$query_quality = gsub(".*bp_", "\\1",
 fastANI.id$reference_quality = gsub(".*bp_", "\\1",
                                 gsub(".fna", "",
                                      gsub("_provirus", "", fastANI.id$reference_genome)))
+
+#################################'
+#################################'#################################'
+#################################'#################################'
+#################################'#################################'
 #add a numerical score to quality in order to make sorting easier
 fastANI.id %>%
   mutate(query_q = case_when(

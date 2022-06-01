@@ -1,11 +1,12 @@
-if(!require('dplyr'))install.packages('dplyr')
-if(!require('seqinr'))install.packages('seqinr')
-if(!require('stringr'))install.packages('stringr')
+list.of.packages <- c( "seqinr", "dplyr", "stringr", "tidyr")
+new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
+if(length(new.packages)) install.packages(new.packages,
+                                          repos = "https://cran.uni-muenster.de/")
 
-library(dplyr)
 library(seqinr)
+library(dplyr)
 library(stringr)
-
+library(tidyr)
 
 oDir = Sys.getenv("oDir")
 iter = Sys.getenv("iter")
@@ -108,6 +109,53 @@ for (i in 1:length(dfs)){
   }
 }
 rm(directory, i)#remove directory variable
+#Make a quick summary text
+df <-
+  tidyr::separate(
+    data = quality,
+    col = contig_id,
+    sep = ";;",
+    into = c("contig", "tool"),
+    remove = FALSE
+  )
+
+for(i in 1:nrow(df)) {
+  if (str_detect(df[i,"tool"], "full") == TRUE) {
+    df[i,"tool"] = gsub("full.*", "virsorter2", df[i,"tool"])
+  }
+  if (str_detect(df[i,"tool"], "partial") == TRUE) {
+    df[i,"tool"] = gsub("partial.*", "virsorter2", df[i,"tool"])
+  }
+  if (str_detect(df[i,"tool"], "lt2gene") == TRUE) {
+    df[i,"lt2gene"] = "yes"
+    df[i,"tool"] = gsub(".*", "virsorter2", df[i,"tool"])
+  }
+}
+rm(i)
+
+#quick summary
+df %>%
+  group_by(tool, checkv_quality, provirus, lt2gene) %>% 
+  summarise(contig_count = n(),
+            Mean_contig_length = mean(contig_length, na.rm=TRUE), 
+            Median_contig_length = median(contig_length, na.rm=TRUE)) -> a 
+a$lt2gene[is.na(a$lt2gene)] = "no"
+
+a$handling_by_filter_script = NA
+for(i in 1:nrow(a)){
+  if (str_detect(a[i, "checkv_quality"], "Not-determined") == TRUE){
+    a[i, "handling_by_filter_script"] = "removed by filtering"
+  }else{
+    if (str_detect(a[i, "lt2gene"], "yes") == TRUE){
+      a[i, "handling_by_filter_script"] = "removed by filtering"
+    }else{
+      a[i, "handling_by_filter_script"] = "retained"
+    }
+  }
+}
+print(paste("EXPORTING QUICK SUMMARY"))
+directory = file.path(oDir,"04_checkv", iter, "FILTER_QUICKSUMMARY.csv")
+write.table(a, directory, sep = ";", row.names = FALSE)
 
 
 print(paste("EXPORTING PER GENOME/FRAGMENT FASTA FILES"))
@@ -125,39 +173,41 @@ for (i in 1:length(seq_dfs)){
       }
       
       if (str_detect(names(export), "full") == TRUE) {
-        names(export) = gsub("(virsorter2).*", "\\1", names(export))
-        n = gsub("\\||full\\|virsorter2", "", names(export))
-        n = paste0(n, "|virsorter2|",
-                   ifelse(quality[which(quality == names(export)), "provirus"] == "Yes", 
-                          paste0(quality[which(quality == names(export)), "contig_length"], "bp", "_",
-                                 quality[which(quality == names(export)), "checkv_quality"], "_provirus"), 
-                          paste0(quality[which(quality == names(export)), "contig_length"], "bp", "_", 
-                                 quality[which(quality == names(export)), "checkv_quality"])))
+        #names(export) = gsub("(virsorter2).*", "\\1", names(export))
+        n = gsub("bp.*", "\\1bp", names(export))
+        n = paste0(gsub(";;full", ";virsorter2;", 
+                        gsub("([0-9]+)_bp", "", n)),
+                   ifelse(quality[which(quality == n), "provirus"] == "Yes", 
+                          paste0(quality[which(quality == n), "checkv_quality"], ";provirus", ";",
+                                 quality[which(quality == n), "contig_length"], "bp"), 
+                          paste0(quality[which(quality == n), "contig_length"], "bp", ";", 
+                                 quality[which(quality == n), "checkv_quality"])))
         #find the name of current iteration in quality dataframe and add contig quality, length and if
         #complete or partial to name so it can be exported as fasta header
         names(export) = n
       }
       
       if (str_detect(names(export), "partial") == TRUE) {
-        n = gsub("\\||_partial\\|virsorter2", "", names(export))
-        n = paste0(n, "|virsorter2|",
-                   ifelse(quality[which(quality == names(export)), "provirus"] == "Yes", 
-                          paste0(quality[which(quality == names(export)), "contig_length"], "bp", "_",
-                                 quality[which(quality == names(export)), "checkv_quality"], "_provirus"), 
-                          paste0(quality[which(quality == names(export)), "contig_length"], "bp", "_", 
-                                 quality[which(quality == names(export)), "checkv_quality"])))
+        n = gsub("bp.*", "\\1bp", names(export))
+        n = paste0(gsub(";;full", ";virsorter2;", 
+                        gsub("([0-9]+)_bp", "", n)),
+                   ifelse(quality[which(quality == n), "provirus"] == "Yes", 
+                          paste0(quality[which(quality == n), "checkv_quality"], ";provirus", ";",
+                                 quality[which(quality == n), "contig_length"], "bp"), 
+                          paste0(quality[which(quality == n), "contig_length"], "bp", ";", 
+                                 quality[which(quality == n), "checkv_quality"])))
         #find the name of current iteration in quality dataframe and add contig quality, length and if
         #complete or partial to name so it can be exported as fasta header
         names(export) = n
       }
       
       if (str_detect(names(export), "vibrant") == TRUE) {
-        n = gsub("\\|vibrant", "", names(export))
-        n = paste0(n, "|vibrant|",
+        n = gsub("\\;;vibrant", "", names(export))
+        n = paste0(n, ";vibrant;",
                    ifelse(quality[which(quality == names(export)), "provirus"] == "Yes", 
-                          paste0(quality[which(quality == names(export)), "contig_length"], "bp", "_",
-                                 quality[which(quality == names(export)), "checkv_quality"], "_provirus"), 
-                          paste0(quality[which(quality == names(export)), "contig_length"], "bp", "_", 
+                          paste0(quality[which(quality == names(export)), "checkv_quality"], ";provirus", ";",
+                                 quality[which(quality == names(export)), "contig_length"], "bp"), 
+                          paste0(quality[which(quality == names(export)), "contig_length"], "bp", ";", 
                                  quality[which(quality == names(export)), "checkv_quality"])))
         #find the name of current iteration in quality dataframe and add contig quality, length and if
         #complete or partial to name so it can be exported as fasta header
@@ -165,13 +215,13 @@ for (i in 1:length(seq_dfs)){
       }
       
       if (str_detect(names(export), "metaviralspades") == TRUE) {
-        n = gsub("\\|metaviralspades", "", names(export))
+        n = gsub("\\;;metaviralspades", "", names(export))
         n = gsub("_cutoff.*", "", n)
-        n = paste0(n, "|metaviralspades|",
+        n = paste0(n, ";metaviralspades;",
                    ifelse(quality[which(quality == names(export)), "provirus"] == "Yes", 
-                          paste0(quality[which(quality == names(export)), "contig_length"], "bp", "_",
-                                 quality[which(quality == names(export)), "checkv_quality"], "_provirus"), 
-                          paste0(quality[which(quality == names(export)), "contig_length"], "bp", "_", 
+                          paste0(quality[which(quality == names(export)), "checkv_quality"], ";provirus", ";",
+                                 quality[which(quality == names(export)), "contig_length"], "bp"), 
+                          paste0(quality[which(quality == names(export)), "contig_length"], "bp", ";", 
                                  quality[which(quality == names(export)), "checkv_quality"])))
         #find the name of current iteration in quality dataframe and add contig quality, length and if
         #complete or partial to name so it can be exported as fasta header
