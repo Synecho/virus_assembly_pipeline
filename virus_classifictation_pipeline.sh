@@ -232,7 +232,7 @@ if [[ "$STEP" == 1 || "$mode" == "complete" ]]; then
         rm -rf $oDir/tmp 
 
         mkdir -p $oDir/03.1_all_viral_contigs
-        sed 's/>.*/&;;metaviralspades/' $oDir/01_metaviralspades/${s}_contigs.fasta > $oDir/03.1_all_viral_contigs/${s}/${s}.phage_contigs_metaviralspades.fna
+        sed 's/>.*/&;metaviralspades/' $oDir/01_metaviralspades/${s}_contigs.fasta > $oDir/03.1_all_viral_contigs/${s}/${s}.phage_contigs_metaviralspades.fna
     done
 fi
 
@@ -303,7 +303,7 @@ if [[ "$STEP" == 3 || "$mode" == "complete" ]]; then
         rm -rf $oDir/03_vibrant/tmp
 
         mkdir -p $oDir/03.1_all_viral_contigs/
-        sed 's/>.*/&;;vibrant/' $oDir/03_vibrant/${s}/${s}.phages_combined.fna > $oDir/03.1_all_viral_contigs/${s}/${s}.phages_contigs_vibrant.fna
+        sed 's/>.*/&;vibrant/' $oDir/03_vibrant/${s}/${s}.phages_combined.fna > $oDir/03.1_all_viral_contigs/${s}/${s}.phages_contigs_vibrant.fna
     done
 fi
 
@@ -426,7 +426,7 @@ if [[ "$STEP" == 6 ]]; then
         DB=$oDir/06_bowtie2/temp/Bowtie2.db
 
         echo
-        echo -e ${blue}"Mapping reads from ${green}"$s"_R1.fastq${nc} and ${green}"$s"_R2.fastq${nc} to database..." 
+        echo -e ${blue}"Mapping reads from ${green}"$s"_R1.fastq${nc} and ${green}"$s"_R2.fastq${nc} to database: "$DB" " 
         bowtie2 --very-sensitive-local \
         -x $DB \
         -1 $rDir/${s}_*1.fastq \
@@ -437,7 +437,7 @@ if [[ "$STEP" == 6 ]]; then
         echo -e "Reformating ${green}"$s".sam${nc} to ${green}"$s".bam${nc} ..."
         samtools view -@ $threads -b -S $oDir/06_bowtie2/temp/${s}.sam > $oDir/06_bowtie2/bam/${s}.bam
         echo -e "Deleting ${green}"$s".sam${nc}..."
-        rm $oDir/temp/${s}.sam
+        rm $oDir/06_bowtie2/temp/${s}.sam
         echo -e "Sorting ${green}"$s".bam${nc}..."
         samtools sort -@ $threads $oDir/06_bowtie2/bam/${s}.bam > $oDir/06_bowtie2/bam/${s}.sorted.bam 
         rm $oDir/06_bowtie2/bam/${s}.bam

@@ -1,3 +1,6 @@
+##############################################################################################################
+#Packages
+##############################################################################################################
 list.of.packages <- c( "seqinr", "dplyr", "stringr", "tidyr")
 new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
 if(length(new.packages)) install.packages(new.packages,
@@ -8,6 +11,9 @@ library(dplyr)
 library(stringr)
 library(tidyr)
 
+##############################################################################################################
+#System variables
+##############################################################################################################
 oDir = Sys.getenv("oDir")
 iter = Sys.getenv("iter")
 minlength = Sys.getenv("minlength") #parameter for viral contig length
@@ -19,7 +25,9 @@ print(paste("iteration =", iter))
 print(paste("minlength =", minlength))
 print(paste("############################"))
 
+##############################################################################################################
 #set working directory
+##############################################################################################################
 directory = file.path(oDir, "04_checkv", iter) #set working directory
 setwd(directory)
 print(paste("############################"))
@@ -28,9 +36,12 @@ print(paste(directory))
 print(paste("############################"))
 rm(directory)
 
+##############################################################################################################
 #import checkv quality report
+##############################################################################################################
 directory = file.path(oDir, "04_checkv", iter, "quality_summary.tsv")#make directory path 
 quality = read.delim(directory, fill = TRUE)
+                     
 rm(directory)#remove directory variable
 
 #filter checkv quality summary by various parameters
@@ -60,7 +71,10 @@ dfs = c("complete_phages", "high_quality", "medium_quality", "low_quality",
 qc_list = list(complete_phages, high_quality, medium_quality, low_quality, complete_phages, proviruses)
 names(qc_list) = dfs
 
-###Import phages sequences###
+
+##############################################################################################################
+#Import phages sequences
+##############################################################################################################
 #make directory path for fasta import
 print(paste("IMPORTING FASTA FILE(S) WITH VIRAL SEQUENCES"))
 directory = file.path(oDir, "04_checkv", iter, "viruses.fna")
@@ -82,7 +96,9 @@ for(i in 1:length(provirus_sequences)){
 }
 rm(i)
 
-
+##############################################################################################################
+#BINNING
+##############################################################################################################
 print(paste("BINNING SEQUENCES"))
 #select list items in df "sequences" conditionally based on above determined filtering conditions
 #Place DFs into list
@@ -98,26 +114,31 @@ seq_dfs = c("complete_phages", "high_quality", "medium_quality", "low_quality", 
 names(qc_list_seq) = seq_dfs
 rm(complete_phages_seq, high_quality_seq, medium_quality_seq, low_quality_seq, provirus_seq)
 
+##############################################################################################################
+#EXPORt QUALITY TABLES
+##############################################################################################################
 #export these dataframes as individial tables
 print(paste("EXPORTING QUALITY TABLES"))
 directory = file.path(oDir,"04_checkv", iter, "qc_tables")#make export path
 dir.create(directory, showWarnings = TRUE)
 for (i in 1:length(dfs)){
-  file = file.path(directory, paste0(iter, "_", dfs[i],".tsv"))
+  file = file.path(directory, paste0(iter, "_", dfs[i],".csv"))
   if(nrow(qc_list[[i]]) >= 1) {#only export if there is something in the list
     write.table(qc_list[i], file, sep = ";", row.names = FALSE)
   }
 }
 rm(directory, i)#remove directory variable
-#Make a quick summary text
+
+#Make a quick summary df
 df <-
   tidyr::separate(
     data = quality,
     col = contig_id,
-    sep = ";;",
+    sep = ";",
     into = c("contig", "tool"),
-    remove = FALSE
+    remove = TRUE
   )
+print(paste0("If a warning message occurs here, it can be ignored"))
 
 for(i in 1:nrow(df)) {
   if (str_detect(df[i,"tool"], "full") == TRUE) {
@@ -133,7 +154,10 @@ for(i in 1:nrow(df)) {
 }
 rm(i)
 
-#quick summary
+
+##############################################################################################################
+#create quick summary
+##############################################################################################################
 df %>%
   group_by(tool, checkv_quality, provirus, lt2gene) %>% 
   summarise(contig_count = n(),
@@ -154,10 +178,13 @@ for(i in 1:nrow(a)){
   }
 }
 print(paste("EXPORTING QUICK SUMMARY"))
-directory = file.path(oDir,"04_checkv", iter, "FILTER_QUICKSUMMARY.csv")
+directory = file.path(oDir,"04_checkv", iter, paste0(iter,"_FILTER_QUICKSUMMARY.csv"))
 write.table(a, directory, sep = ";", row.names = FALSE)
 
 
+##############################################################################################################
+#EXPORT PER GENOME/FRAGMENT FASTA FILES
+##############################################################################################################
 print(paste("EXPORTING PER GENOME/FRAGMENT FASTA FILES"))
 #creating export directory
 directory = file.path(oDir,"04_checkv", iter, "phages")#make export path
@@ -180,8 +207,8 @@ for (i in 1:length(seq_dfs)){
                    ifelse(quality[which(quality == n), "provirus"] == "Yes", 
                           paste0(quality[which(quality == n), "checkv_quality"], ";provirus", ";",
                                  quality[which(quality == n), "contig_length"], "bp"), 
-                          paste0(quality[which(quality == n), "contig_length"], "bp", ";", 
-                                 quality[which(quality == n), "checkv_quality"])))
+                          paste0( quality[which(quality == n), "checkv_quality"],";", 
+                                 quality[which(quality == n), "contig_length"], "bp")))
         #find the name of current iteration in quality dataframe and add contig quality, length and if
         #complete or partial to name so it can be exported as fasta header
         names(export) = n
@@ -207,8 +234,8 @@ for (i in 1:length(seq_dfs)){
                    ifelse(quality[which(quality == names(export)), "provirus"] == "Yes", 
                           paste0(quality[which(quality == names(export)), "checkv_quality"], ";provirus", ";",
                                  quality[which(quality == names(export)), "contig_length"], "bp"), 
-                          paste0(quality[which(quality == names(export)), "contig_length"], "bp", ";", 
-                                 quality[which(quality == names(export)), "checkv_quality"])))
+                          paste0(quality[which(quality == names(export)), "checkv_quality"], ";",
+                                 quality[which(quality == names(export)), "contig_length"], "bp")))
         #find the name of current iteration in quality dataframe and add contig quality, length and if
         #complete or partial to name so it can be exported as fasta header
         names(export) = n
@@ -221,8 +248,8 @@ for (i in 1:length(seq_dfs)){
                    ifelse(quality[which(quality == names(export)), "provirus"] == "Yes", 
                           paste0(quality[which(quality == names(export)), "checkv_quality"], ";provirus", ";",
                                  quality[which(quality == names(export)), "contig_length"], "bp"), 
-                          paste0(quality[which(quality == names(export)), "contig_length"], "bp", ";", 
-                                 quality[which(quality == names(export)), "checkv_quality"])))
+                          paste0(quality[which(quality == names(export)), "checkv_quality"], ";", 
+                                 quality[which(quality == names(export)), "contig_length"], "bp")))
         #find the name of current iteration in quality dataframe and add contig quality, length and if
         #complete or partial to name so it can be exported as fasta header
         names(export) = n
