@@ -200,7 +200,7 @@ names(phage.sequences) = gsub("(^.*)", "\\1.fna", names(phage.sequences))
 isNameInIndex <- names(phage.sequences) %in% remove.contigs
 duplicated.phage.sequences = phage.sequences[isNameInIndex]
 phage.sequences = phage.sequences[!isNameInIndex]
-
+names(phage.sequences) = gsub("(.fna)", "", names(phage.sequences))
 #################################################################################################################
 #export phage sequences
 #################################################################################################################
@@ -210,7 +210,7 @@ dir.create(dir, showWarnings = TRUE)
 print(paste("EXPORTING FastANI SORTED PHAGES"))
 for(i in 1:length(phage.sequences)) {
   export = phage.sequences[i]
-  file = file.path(oDir, "05_fastANI", iter, "phages", names(export))
+  file = file.path(oDir, "05_fastANI", iter, "phages", paste0(names(export), ".fna"))
   write.fasta(export, names(export), file, open = "w")  
 }
 rm(i)

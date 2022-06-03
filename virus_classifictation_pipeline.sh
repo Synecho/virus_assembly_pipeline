@@ -121,10 +121,11 @@ echo "5: FastANI"
 echo "6: Bowtie2"
 echo "7: VirHostMatcher-Net"
 echo "8: Bacphlip"
-echo "complete"
+echo "9: Demovir"
 echo "10: ViPTreeGen"
 echo "11: Vcontact2"
 echo "12: DIAMOND Blastp ViralRefSeq"
+echo "complete"
 echo -e "${nc}"
 
 echo -e "${red}"
@@ -148,6 +149,7 @@ viralrefseq=/bioinf/home/benedikt.heyerhoff/Resources/database/viral.3.protein.f
 virhostmatcherdata=/bioinf/home/benedikt.heyerhoff/Resources/VirHostMatcher-Net/data
 vibrant=/bioinf/home/benedikt.heyerhoff/Resources/VIBRANT/VIBRANT_run.py
 fastANI=/bioinf/home/benedikt.heyerhoff/Resources/FastANI/fastANI
+demovir=/bioinf/home/benedikt.heyerhoff/Resources/Demovir
 
 
 ###############################################################################################################################
@@ -187,7 +189,7 @@ if [[ "$STEP" == 0 || "$mode" == "complete" ]]; then
     echo -e "${green}Next step: SPAdes${nc}"
     echo ""
     echo ""
-    for s in $(cat $oDir/infiles.txt);do
+    for s in $(cat $oDir/infiles.txt); do
         echo -e "${blue}RUNNING SPAdes WITH "${s}" FASTQ files${nc}"
         mkdir -p $oDir/00_spades/
         $spades \
@@ -195,7 +197,8 @@ if [[ "$STEP" == 0 || "$mode" == "complete" ]]; then
         -2 $rDir/${s}_*2.fastq \
         --meta \
         -t $threads \
-        -m $mem
+        -m $mem \
+        -o $oDir/00_spades/${s}
 
         #move assembly from tmp to 00_spades directory
         mv $oDir/tmp/contigs.fasta $oDir/00_spades/${s}_contigs.fasta
@@ -214,7 +217,7 @@ if [[ "$STEP" == 1 || "$mode" == "complete" ]]; then
     echo -e "${green}Next step: metaviralSPAdes${nc}"
     echo ""
     echo ""
-    for s in $(cat $oDir/infiles.txt);do
+    for s in $(cat $oDir/infiles.txt); do
         echo -e "${blue}RUNNING metaviralSPAdes WITH "${s}" FASTQ files${nc}"  
         mkdir -p $oDir/01_metaviralspades      
         python3 $metaviralspades \
@@ -245,7 +248,7 @@ if [[ "$STEP" == 2 || "$mode" == "complete" ]]; then
     echo ""
     echo ""
     singularity run $virsorter2 config --set HMMSEARCH_THREADS=$threads #configure threads for hmmsearch
-    for s in $(cat $oDir/infiles.txt);do
+    for s in $(cat $oDir/infiles.txt); do
         echo -e "${blue}RUNNING Virsorter2 WITH ${green} "${s}" ${blue} files${nc}"
         singularity run $virsorter2 \
         run \
@@ -281,7 +284,7 @@ if [[ "$STEP" == 3 || "$mode" == "complete" ]]; then
     echo -e "${green}Next step: VIBRANT${nc}"
     echo ""
     echo ""
-    for s in $(cat $oDir/infiles.txt);do
+    for s in $(cat $oDir/infiles.txt); do
         echo -ne "${blue}RUNNING VIBRANT WITH ${green} "${s}" ${blue}CONTIGS${nc}"
         mkdir -p $oDir/03_vibrant/${s}
         mkdir -p $oDir/03_vibrant/tmp
@@ -362,7 +365,7 @@ fi
 # MODE: FastANI                                                                                                                   #
 ###################################################################################################################################
 
-if [[ "$STEP" == 5 ]]; then
+if [[ "$STEP" == 5 || "$mode" == "complete" ]]; then
     echo -e "${green} Next step: FastANI ${nc}"
     echo ""
     echo ""
@@ -373,7 +376,7 @@ if [[ "$STEP" == 5 ]]; then
     for s in $(cat $oDir/05_fastANI/infiles.txt); do
         cd $oDir/04_checkv/${s}/phages && ls | xargs readlink -f | uniq > $oDir/05_fastANI/fastANI_phage_files.txt
     done
-       
+
     echo -e "${blue}Comparing Phages in "${i}" with FastANI ${nc}"
     for i in $(cat $oDir/05_fastANI/infiles.txt); do
         mkdir -p $oDir/05_fastANI/${i}
@@ -402,7 +405,7 @@ fi
 # MODE: Bowtie2                                                                                                                   #
 ###################################################################################################################################
 
-if [[ "$STEP" == 6 ]]; then
+if [[ "$STEP" == 6 || "$mode" == "complete" ]]; then
     echo -e "${green} Next step: Bowtie2 ${nc}"
     echo ""
     echo ""
@@ -414,7 +417,7 @@ if [[ "$STEP" == 6 ]]; then
     
     #( cd $rDir && ls *.fastq ) | awk 'BEGIN{FS=OFS="_"}{NF--; print}' | uniq -d > $oDir/temp/files.txt
     (cd $oDir/05_fastANI && ls -d */ | cut -f1 -d'/' > $oDir/06_bowtie2/infiles.txt) #list all folders in target directory
-    for s in $(cat $oDir/06_bowtie2/infiles.txt);do
+    for s in $(cat $oDir/06_bowtie2/infiles.txt); do
 
         #make arrays
         reads=$( cd $rDir && ls *.f* ) | awk 'BEGIN{FS=OFS="_"}{NF--; print}' | uniq -d | wc -l
@@ -461,8 +464,7 @@ fi
 ###################################################################################################################################
 # MODE: VirHostMatcher-Net                                                                                                        #
 ###################################################################################################################################
-
-if [[ "$STEP" == 7 ]]; then
+if [[ "$STEP" == 7 || "$mode" == "complete" ]]; then
     echo -e "${green} Next step: VirHostMatcher-net ${nc}"
     echo -e "Using" $hosts "as reference host list"
     echo ""
@@ -474,7 +476,7 @@ if [[ "$STEP" == 7 ]]; then
     
     if [[ "$hosts" == "marinehostlist" ]]; then
 
-        for s in $(cat $oDir/07_VirHostMatcher/infiles.txt);do
+        for s in $(cat $oDir/07_VirHostMatcher/infiles.txt); do
             mkdir -p $oDir/07_VirHostMatcher/${s}
             python3 $VirHostMatcher \
             -q $oDir/05_fastANI/${s}/phages \
@@ -504,24 +506,90 @@ if [[ "$STEP" == 7 ]]; then
     fi
 fi
 
-##################################### BACPHLIP ########################################
-if [[ "$STEP" == 8 ]]; then
+###################################################################################################################################
+# MODE: BACPHLIP                                                                                                                  #
+###################################################################################################################################
+if [[ "$STEP" == 8 || "$mode" == "complete" ]]; then
     echo -e "${green} Next step: BACPHLIP ${nc}"
+    echo ""
+    echo ""
 
-    contigs=$( cd $oDir/04_checkv/length_filtered_contigs && ls *.f* ) | awk 'BEGIN{FS=OFS="_"}{NF--; print}' | wc -l
-    for s in $(cat $oDir/infiles.txt);do
-        bacphlip -i /valid/path/to/a/multigenome.fasta \
+    mkdir -p $oDir/08_BACPHLIP
+    mkdir -p $oDir/08_BACPHLIP/temp
+    (cd $oDir/04_checkv && ls -d */ | cut -f1 -d'/' > $oDir/08_BACPHLIP/infiles.txt) #list all folders in target directory
+    
+    
+
+    for s in $(cat $oDir/08_BACPHLIP/infiles.txt); do
+        mkdir -p $oDir/08_BACPHLIP/${s}/phages
+
+        cat $oDir/05_fastANI/${s}/phages/*.f* > $oDir/08_BACPHLIP/${s}/phages/${s}_all_phages.fna #combine single fasta to multifasta
+
+        bacphlip -i $oDir/08_BACPHLIP/${s}/phages/${s}_all_phages.fna \
         --multi_fasta
     done
+fi
 
+###################################################################################################################################
+# MODE: Demovir                                                                                                                   #
+###################################################################################################################################
+if [[ "$STEP" == 9 ]]; then
+    echo -e "${green} Next step: Demovir ${nc}"
+    echo ""
+    echo ""
 
+    mkdir -p $oDir/09_Demovir
+    (cd $oDir/04_checkv && ls -d */ | cut -f1 -d'/' > $oDir/09_Demovir/infiles.txt) #list all folders in target directory
+
+    if [ ! -f $demovir/uniprot_trembl.viral.udb ]; then
+        echo -e "${red}Demovir database NOT present. Downloading...${nc}"
+        (cd $demovir/ && wget https://figshare.com/ndownloader/files/10442241)
+        (mv $demovir/10442241 $demovir/nr.95.fasta.bz2)
+        echo -e "${green}Extracting Demovir database...${nc}"
+        cd $demovir && bash $demovir/format_db.sh
+    else
+        echo -e "${green}Demovir database present -not downloading${nc}"
+
+        for s in $(cat $oDir/09_Demovir/infiles.txt); do
+            cd $oDir/09_Demovir
+            bash $demovir/demovir.sh $oDir/08_BACPHLIP/${s}/phages/${s}_all_phages.fna $threads
+        done
+    fi
 
 fi
 
+###################################################################################################################################
+# MODE: ViPTreeGen                                                                                                                #
+###################################################################################################################################
+if [[ "$STEP" == 10 ]]; then
+    echo -e "${green} Next step: ViPTree ${nc}"
+    echo ""
+    echo ""
 
+    cd $oDir/$oDir/04_checkv/
+    mkdir -p $oDir/10_ViPTree/
+    (cd $oDir/04_checkv && ls -d */ | cut -f1 -d'/' > $oDir/10_ViPTree/infiles.txt) #list all folders in target directory
 
-###################################### Vcontact2 ########################################
-if [[ "$STEP" == 9 ]]; then
+    #for f in *.fna; do
+    #    sed -i '' -e "s/^>/>${f%.fna}_/g" "${f}"; #rename fasta headers to include metagenome name
+    #done
+
+    #cat *.fna > $oDir/ViPTree/input/length_filtered_contigs.fna #concatenate all fastas into one 
+    ##rm $oDir/ViPTree/*.fna
+    #cd $oDir
+    for s in $(cat $oDir/08_BACPHLIP/infiles.txt); do
+        ViPTreeGen \
+        $oDir/08_BACPHLIP/${s}/phages/${s}_all_phages.fna \
+        $oDir/10_ViPTree/ \
+        --ncpus $threads
+    done
+fi
+
+###################################################################################################################################
+# MODE: Vcontact2                                                                                                                 #
+###################################################################################################################################
+
+if [[ "$STEP" == 11 ]]; then
     echo -e "${green} Next step: Vcontact2 ${nc}"
     echo ""
     echo ""
@@ -567,8 +635,9 @@ if [[ "$STEP" == 9 ]]; then
     done
 fi
 
+
 ####################################### ViralRefSeq Blast ##################################
-if [[ "$STEP" == 9 ]]; then
+if [[ "$STEP" == 12 ]]; then
     echo -e "${green} Next step: Blasting length filtered contigs against ViralRefSeq ${nc}"
     echo ""
     echo -e "${green} Creating Diamond BlastN DB ${nc}..." 
@@ -591,38 +660,9 @@ if [[ "$STEP" == 9 ]]; then
     done
 fi
 
-#################################### ViPTreeGen #######################################
-if [[ "$STEP" == 8 ]]; then
-    echo -e "${green} Next step: Merging length filtered contigs contigs into one file ${nc}"
-    echo ""
-    echo ""
-
-    cd $oDir/checkv/length_filtered_contigs/
-    mkdir -p $oDir/ViPTree
-    cp *.fna $oDir/ViPTree
-    cd $oDir/ViPTree
-
-    for f in *.fna; do
-        sed -i '' -e "s/^>/>${f%.fna}_/g" "${f}"; #rename fasta headers to include metagenome name
-    done
-
-    cat *.fna > $oDir/ViPTree/input/length_filtered_contigs.fna #concatenate all fastas into one 
-    rm $oDir/ViPTree/*.fna
-    cd $oDir
-
-    echo -e "${green} Next step: ViPTree ${nc}"
-    ViPTreeGen \
-    $oDir/08_ViPTree/length_filtered_contigs.fna \
-    $oDir/08_ViPTree/ \
-    --notree \
-    --2D $oDir/ViPTree/length_filtered_contigs.fna  \
-    --ncpus $threads
-fi
-
-
 echo ""
 echo ""
-echo -e "############################################"
-echo -e "###################${BgGreen}Done!${nc}####################"
-echo -e "############################################"
+echo -e "${BgGreen}############################################${nc}"
+echo -e "${BgGreen}###################${nc}Done!${BgGreen}####################${nc}"
+echo -e "${BgGreen}############################################${nc}"
 
