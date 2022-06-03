@@ -41,7 +41,7 @@ rm(directory)
 ##############################################################################################################
 directory = file.path(oDir, "04_checkv", iter, "quality_summary.tsv")#make directory path 
 quality = read.delim(directory, fill = TRUE)
-                     
+
 rm(directory)#remove directory variable
 
 #filter checkv quality summary by various parameters
@@ -79,7 +79,7 @@ names(qc_list) = dfs
 print(paste("IMPORTING FASTA FILE(S) WITH VIRAL SEQUENCES"))
 directory = file.path(oDir, "04_checkv", iter, "viruses.fna")
 viral_sequences = read.fasta(file = directory, as.string = TRUE, whole.header = TRUE, 
-                       seqtype = "DNA") #import phage fasta file
+                             seqtype = "DNA") #import phage fasta file
 directory = file.path(oDir, "04_checkv", iter, "proviruses.fna")
 provirus_sequences = read.fasta(file = directory, as.string = TRUE, whole.header = TRUE, 
                                 seqtype = "DNA") #import prophage fasta file
@@ -129,6 +129,8 @@ for (i in 1:length(dfs)){
 }
 rm(directory, i)#remove directory variable
 
+print(paste0("####################################################"))
+print(paste0("If a warning message occurs here, it can be ignored"))
 #Make a quick summary df
 df <-
   tidyr::separate(
@@ -139,6 +141,7 @@ df <-
     remove = TRUE
   )
 print(paste0("If a warning message occurs here, it can be ignored"))
+print(paste0("####################################################"))
 
 for(i in 1:nrow(df)) {
   if (str_detect(df[i,"tool"], "full") == TRUE) {
@@ -201,14 +204,16 @@ for (i in 1:length(seq_dfs)){
       
       if (str_detect(names(export), "full") == TRUE) {
         #names(export) = gsub("(virsorter2).*", "\\1", names(export))
-        n = gsub("bp.*", "\\1bp", names(export))
-        n = paste0(gsub(";;full", ";virsorter2;", 
-                        gsub("([0-9]+)_bp", "", n)),
+        n = gsub("bp.*", "\\1bp", names(export)) #this is in case the sequence is a prophage sequence. it cuts the name 
+        n = paste0(gsub("_full", "_virsorter2_",
+                        gsub(";", "_",
+                                  gsub("([0-9]+)_bp", "", n))),
                    ifelse(quality[which(quality == n), "provirus"] == "Yes", 
-                          paste0(quality[which(quality == n), "checkv_quality"], ";provirus", ";",
+                          paste0(quality[which(quality == n), "checkv_quality"], "_provirus", "_",
                                  quality[which(quality == n), "contig_length"], "bp"), 
-                          paste0( quality[which(quality == n), "checkv_quality"],";", 
-                                 quality[which(quality == n), "contig_length"], "bp")))
+                          paste0( quality[which(quality == n), "checkv_quality"],"_", 
+                                  quality[which(quality == n), "contig_length"], "bp")))
+        n = gsub("__", "_", n)
         #find the name of current iteration in quality dataframe and add contig quality, length and if
         #complete or partial to name so it can be exported as fasta header
         names(export) = n
@@ -216,25 +221,28 @@ for (i in 1:length(seq_dfs)){
       
       if (str_detect(names(export), "partial") == TRUE) {
         n = gsub("bp.*", "\\1bp", names(export))
-        n = paste0(gsub(";;full", ";virsorter2;", 
-                        gsub("([0-9]+)_bp", "", n)),
+        n = paste0(gsub("_full", "_virsorter2_",
+                        gsub(";", "_",
+                             gsub("__", "_",
+                                  gsub("([0-9]+)_bp", "", n)))),
                    ifelse(quality[which(quality == n), "provirus"] == "Yes", 
-                          paste0(quality[which(quality == n), "checkv_quality"], ";provirus", ";",
+                          paste0(quality[which(quality == n), "checkv_quality"], "_provirus", "_",
                                  quality[which(quality == n), "contig_length"], "bp"), 
-                          paste0(quality[which(quality == n), "contig_length"], "bp", ";", 
-                                 quality[which(quality == n), "checkv_quality"])))
+                          paste0( quality[which(quality == n), "checkv_quality"],"_", 
+                                  quality[which(quality == n), "contig_length"], "bp")))
+        n = gsub("__", "_", n)
         #find the name of current iteration in quality dataframe and add contig quality, length and if
         #complete or partial to name so it can be exported as fasta header
         names(export) = n
       }
       
       if (str_detect(names(export), "vibrant") == TRUE) {
-        n = gsub("\\;;vibrant", "", names(export))
-        n = paste0(n, ";vibrant;",
+        n = gsub("\\;vibrant", "", names(export))
+        n = paste0(n, "_vibrant_",
                    ifelse(quality[which(quality == names(export)), "provirus"] == "Yes", 
-                          paste0(quality[which(quality == names(export)), "checkv_quality"], ";provirus", ";",
+                          paste0(quality[which(quality == names(export)), "checkv_quality"], "_provirus", "_",
                                  quality[which(quality == names(export)), "contig_length"], "bp"), 
-                          paste0(quality[which(quality == names(export)), "checkv_quality"], ";",
+                          paste0(quality[which(quality == names(export)), "checkv_quality"], "_",
                                  quality[which(quality == names(export)), "contig_length"], "bp")))
         #find the name of current iteration in quality dataframe and add contig quality, length and if
         #complete or partial to name so it can be exported as fasta header
@@ -242,13 +250,13 @@ for (i in 1:length(seq_dfs)){
       }
       
       if (str_detect(names(export), "metaviralspades") == TRUE) {
-        n = gsub("\\;;metaviralspades", "", names(export))
+        n = gsub("_metaviralspades", "", names(export))
         n = gsub("_cutoff.*", "", n)
-        n = paste0(n, ";metaviralspades;",
+        n = paste0(n, "_metaviralspades_",
                    ifelse(quality[which(quality == names(export)), "provirus"] == "Yes", 
-                          paste0(quality[which(quality == names(export)), "checkv_quality"], ";provirus", ";",
+                          paste0(quality[which(quality == names(export)), "checkv_quality"], "_provirus", "_",
                                  quality[which(quality == names(export)), "contig_length"], "bp"), 
-                          paste0(quality[which(quality == names(export)), "checkv_quality"], ";", 
+                          paste0(quality[which(quality == names(export)), "checkv_quality"], "_", 
                                  quality[which(quality == names(export)), "contig_length"], "bp")))
         #find the name of current iteration in quality dataframe and add contig quality, length and if
         #complete or partial to name so it can be exported as fasta header

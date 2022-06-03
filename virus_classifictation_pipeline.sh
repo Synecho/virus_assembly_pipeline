@@ -232,7 +232,7 @@ if [[ "$STEP" == 1 || "$mode" == "complete" ]]; then
         rm -rf $oDir/tmp 
 
         mkdir -p $oDir/03.1_all_viral_contigs
-        sed 's/>.*/&;metaviralspades/' $oDir/01_metaviralspades/${s}_contigs.fasta > $oDir/03.1_all_viral_contigs/${s}/${s}.phage_contigs_metaviralspades.fna
+        sed 's/>.*/&_metaviralspades/' $oDir/01_metaviralspades/${s}_contigs.fasta > $oDir/03.1_all_viral_contigs/${s}/${s}.phage_contigs_metaviralspades.fna
     done
 fi
 
@@ -303,7 +303,7 @@ if [[ "$STEP" == 3 || "$mode" == "complete" ]]; then
         rm -rf $oDir/03_vibrant/tmp
 
         mkdir -p $oDir/03.1_all_viral_contigs/
-        sed 's/>.*/&;vibrant/' $oDir/03_vibrant/${s}/${s}.phages_combined.fna > $oDir/03.1_all_viral_contigs/${s}/${s}.phages_contigs_vibrant.fna
+        sed 's/>.*/&_vibrant/' $oDir/03_vibrant/${s}/${s}.phages_combined.fna > $oDir/03.1_all_viral_contigs/${s}/${s}.phages_contigs_vibrant.fna
     done
 fi
 

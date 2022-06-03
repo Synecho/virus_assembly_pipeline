@@ -105,8 +105,8 @@ fastANI %>%
 fastANI.id$query_length = NA
 fastANI.id$reference_length = NA
 for(i in 1:nrow(fastANI.id)) {
-  fastANI.id[i,"query_length"] = as.numeric(gsub(".*;([0-9]+)bp.*", "\\1", fastANI.id[i,"query_genome"]))
-  fastANI.id[i,"reference_length"] = as.numeric(gsub(".*;([0-9]+)bp.*", "\\1", fastANI.id[i,"reference_genome"]))
+  fastANI.id[i,"query_length"] = as.numeric(gsub(".*_([0-9]+)bp.*", "\\1", fastANI.id[i,"query_genome"]))
+  fastANI.id[i,"reference_length"] = as.numeric(gsub(".*_([0-9]+)bp.*", "\\1", fastANI.id[i,"reference_genome"]))
   }
 rm(i)
 
