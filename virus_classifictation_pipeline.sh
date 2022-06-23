@@ -247,7 +247,7 @@ if [[ "$STEP" == 2 || "$mode" == "complete" ]]; then
     echo -e "${green}Next step: Virsorter2${nc}"
     echo ""
     echo ""
-    singularity run $virsorter2 config --set HMMSEARCH_THREADS=$threads #configure threads for hmmsearch
+    #singularity run $virsorter2 config --set HMMSEARCH_THREADS=$threads #configure threads for hmmsearch
     for s in $(cat $oDir/infiles.txt); do
         echo -e "${blue}RUNNING Virsorter2 WITH ${green} "${s}" ${blue} files${nc}"
         singularity run $virsorter2 \
@@ -259,8 +259,9 @@ if [[ "$STEP" == 2 || "$mode" == "complete" ]]; then
         --keep-original-seq \
         -j $threads
 
-        mv $oDir/02_Virsorter2/tmp/*.fa* $oDir/02_Virsorter2/${s}_virsorter.fasta
-        mv $oDir/02_Virsorter2/tmp/final-viral-score.tsv $oDir/02_Virsorter2/${s}_virsorter_viral_score.tsv
+        mkdir -p $oDir/02_Virsorter2/${s}
+        mv $oDir/02_Virsorter2/tmp/*.fa* $oDir/02_Virsorter2/${s}/${s}_virsorter.fasta
+        mv $oDir/02_Virsorter2/tmp/final-viral-score.tsv $oDir/02_Virsorter2/${s}/${s}_virsorter_viral_score.tsv
         rm -rf $oDir/02_Virsorter2/tmp
 
         #export variables for R script
@@ -291,21 +292,20 @@ if [[ "$STEP" == 3 || "$mode" == "complete" ]]; then
         python3 $vibrant \
         -i $oDir/00_spades/${s}_contigs.fasta \
         -t $threads \
-        -folder $oDir/03_vibrant/tmp \
+        -folder $oDir/03_vibrant/${s} \
         -no_plot \
         -l $minlength
 
         #keep important files only
-        mv $oDir/03_vibrant/tmp/*.phages_combined.fna $oDir/03_vibrant/${s}/${s}.phages_combined_vibrant.fna
-        mv $oDir/03_vibrant/tmp/*.phages_combined.faa $oDir/03_vibrant/${s}/${s}.phages_combined_vibrant.faa
-        mv $oDir/03_vibrant/tmp/VIBRANT_HMM_tables_parsed_${s}_contigs $oDir/03_vibrant/${s}/
-        mv $oDir/03_vibrant/tmp/VIBRANT_genome_quality_${s}_contigs.tsv $oDir/03_vibrant/${s}/VIBRANT_genome_quality_${s}_contigs.tsv
-        mv $oDir/03_vibrant/tmp/VIBRANT_annotations_${s}_contigs.tsv $oDir/03_vibrant/${s}/VIBRANT_annotations_${s}_contigs.tsv
-        mv $oDir/03_vibrant/tmp/VIBRANT_genbank_table_${s}_contigs.tsv $oDir/03_vibrant/${s}/VIBRANT_genbank_table_${s}_contigs.tsv
-        mv ${s}_contigs.phages_combined.txt $oDir/03_vibrant/${s}/${s}_contigs.phages_combined.txt
-        rm -rf $oDir/03_vibrant/tmp
+        #mv $oDir/03_vibrant/tmp/*.phages_combined.fna $oDir/03_vibrant/${s}/${s}.phages_combined_vibrant.fna
+        #mv $oDir/03_vibrant/tmp/*.phages_combined.faa $oDir/03_vibrant/${s}/${s}.phages_combined_vibrant.faa
+        #mv $oDir/03_vibrant/tmp/VIBRANT_HMM_tables_parsed_${s}_contigs $oDir/03_vibrant/${s}/
+        #mv $oDir/03_vibrant/tmp/VIBRANT_genome_quality_${s}_contigs.tsv $oDir/03_vibrant/${s}/VIBRANT_genome_quality_${s}_contigs.tsv
+        #mv $oDir/03_vibrant/tmp/VIBRANT_annotations_${s}_contigs.tsv $oDir/03_vibrant/${s}/VIBRANT_annotations_${s}_contigs.tsv
+        #mv $oDir/03_vibrant/tmp/VIBRANT_genbank_table_${s}_contigs.tsv $oDir/03_vibrant/${s}/VIBRANT_genbank_table_${s}_contigs.tsv
+        #mv ${s}_contigs.phages_combined.txt $oDir/03_vibrant/${s}/${s}_contigs.phages_combined.txt
+        #rm -rf $oDir/03_vibrant/tmp
 
-        mkdir -p $oDir/03.1_all_viral_contigs/
         sed 's/>.*/&_vibrant/' $oDir/03_vibrant/${s}/${s}.phages_combined.fna > $oDir/03.1_all_viral_contigs/${s}/${s}.phages_contigs_vibrant.fna
     done
 fi
