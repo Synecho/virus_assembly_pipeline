@@ -65,8 +65,7 @@ virsorter2.tbl = virsorter2.tbl[order(virsorter2.tbl$seqname), ]
 
 #rename sequences iteratively
 for(i in 1:nrow(virsorter2.tbl)){
-  seqname = paste0(gsub("\\|", ";", virsorter2.tbl[i, "seqname"]), ";", virsorter2.tbl[i, "max_score_group"], 
-                   ";", virsorter2.tbl[i, "length"], "_bp")
+  seqname = paste0(gsub("\\|", ";", virsorter2.tbl[i, "seqname"]), ";", virsorter2.tbl[i, "max_score_group"])
   seqname = gsub(";;", ";", seqname)
   names(virsorter2.seq)[i] = seqname
 }

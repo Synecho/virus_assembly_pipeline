@@ -235,7 +235,8 @@ if [[ "$STEP" == 1 || "$mode" == "complete" ]]; then
         rm -rf $oDir/tmp 
 
         mkdir -p $oDir/03.1_all_viral_contigs
-        sed 's/>.*/&_metaviralspades/' $oDir/01_metaviralspades/${s}_contigs.fasta > $oDir/03.1_all_viral_contigs/${s}/${s}.phage_contigs_metaviralspades.fna
+        mkdir -p $oDir/03.1_all_viral_contigs/${s}
+        sed 's/>.*/&;metaviralspades/' $oDir/01_metaviralspades/${s}_contigs.fasta > $oDir/03.1_all_viral_contigs/${s}/${s}.phage_contigs_metaviralspades.fna
     done
 fi
 
@@ -247,7 +248,7 @@ if [[ "$STEP" == 2 || "$mode" == "complete" ]]; then
     echo -e "${green}Next step: Virsorter2${nc}"
     echo ""
     echo ""
-    #singularity run $virsorter2 config --set HMMSEARCH_THREADS=$threads #configure threads for hmmsearch
+    singularity run $virsorter2 config --set HMMSEARCH_THREADS=$threads #configure threads for hmmsearch
     for s in $(cat $oDir/infiles.txt); do
         echo -e "${blue}RUNNING Virsorter2 WITH ${green} "${s}" ${blue} files${nc}"
         singularity run $virsorter2 \
@@ -258,7 +259,7 @@ if [[ "$STEP" == 2 || "$mode" == "complete" ]]; then
         --min-length $minlength \
         --keep-original-seq \
         -j $threads
-
+    
         mkdir -p $oDir/02_Virsorter2/${s}
         mv $oDir/02_Virsorter2/tmp/*.fa* $oDir/02_Virsorter2/${s}/${s}_virsorter.fasta
         mv $oDir/02_Virsorter2/tmp/final-viral-score.tsv $oDir/02_Virsorter2/${s}/${s}_virsorter_viral_score.tsv
@@ -287,26 +288,24 @@ if [[ "$STEP" == 3 || "$mode" == "complete" ]]; then
     echo ""
     for s in $(cat $oDir/infiles.txt); do
         echo -ne "${blue}RUNNING VIBRANT WITH ${green} "${s}" ${blue}CONTIGS${nc}"
+        echo ""
+        echo ""
+
         mkdir -p $oDir/03_vibrant/${s}
         mkdir -p $oDir/03_vibrant/tmp
         python3 $vibrant \
         -i $oDir/00_spades/${s}_contigs.fasta \
         -t $threads \
-        -folder $oDir/03_vibrant/${s} \
+        -folder $oDir/03_vibrant/tmp \
         -no_plot \
         -l $minlength
 
         #keep important files only
-        #mv $oDir/03_vibrant/tmp/*.phages_combined.fna $oDir/03_vibrant/${s}/${s}.phages_combined_vibrant.fna
-        #mv $oDir/03_vibrant/tmp/*.phages_combined.faa $oDir/03_vibrant/${s}/${s}.phages_combined_vibrant.faa
-        #mv $oDir/03_vibrant/tmp/VIBRANT_HMM_tables_parsed_${s}_contigs $oDir/03_vibrant/${s}/
-        #mv $oDir/03_vibrant/tmp/VIBRANT_genome_quality_${s}_contigs.tsv $oDir/03_vibrant/${s}/VIBRANT_genome_quality_${s}_contigs.tsv
-        #mv $oDir/03_vibrant/tmp/VIBRANT_annotations_${s}_contigs.tsv $oDir/03_vibrant/${s}/VIBRANT_annotations_${s}_contigs.tsv
-        #mv $oDir/03_vibrant/tmp/VIBRANT_genbank_table_${s}_contigs.tsv $oDir/03_vibrant/${s}/VIBRANT_genbank_table_${s}_contigs.tsv
-        #mv ${s}_contigs.phages_combined.txt $oDir/03_vibrant/${s}/${s}_contigs.phages_combined.txt
-        #rm -rf $oDir/03_vibrant/tmp
-
-        sed 's/>.*/&_vibrant/' $oDir/03_vibrant/${s}/${s}.phages_combined.fna > $oDir/03.1_all_viral_contigs/${s}/${s}.phages_contigs_vibrant.fna
+        mv $oDir/03_vibrant/tmp/VIBRANT_${s}_contigs/VIBRANT_phages_${s}_contigs $oDir/03_vibrant/${s}
+        mv $oDir/03_vibrant/tmp/VIBRANT_${s}_contigs/VIBRANT_results_${s}_contigs $oDir/03_vibrant/${s}
+        mv $oDir/03_vibrant/tmp/VIBRANT_${s}_contigs/VIBRANT_HMM_tables_parsed_${s}_contigs $oDir/03_vibrant/${s}
+        rm -rf $oDir/03_vibrant/tmp
+        sed 's/>.*/&;vibrant/' $oDir/03_vibrant/${s}/VIBRANT_phages_${s}_contigs/${s}_contigs.phages_combined.fna > $oDir/03.1_all_viral_contigs/${s}/${s}.phages_contigs_vibrant.fna
     done
 fi
 
@@ -322,14 +321,14 @@ if [[ "$STEP" == 4 || "$mode" == "complete" ]]; then
     (cd $oDir/03.1_all_viral_contigs && ls -d */ | cut -f1 -d'/' > $oDir/03.1_all_viral_contigs/infiles.txt) #list all folders in target directory
     
     for i in $(cat $oDir/03.1_all_viral_contigs/infiles.txt); do #copy all potential virus contigs of iteration into one directory
-        cat $oDir/03.1_all_viral_contigs/${i}/*.f* > $oDir/03.1_all_viral_contigs/${i}_combined_contigs.fna #combine all contigs into one multifasta per metagenome    
+        cat $oDir/03.1_all_viral_contigs/${i}/*.f* > $oDir/03.1_all_viral_contigs/${i}/${i}_combined_contigs.fna #combine all contigs into one multifasta per metagenome    
     done
     #rm -rf $oDir/03.1_all_viral_contigs/${i}
     
     for i in $(cat $oDir/03.1_all_viral_contigs/infiles.txt); do
         echo -e "${blue}checking quality of viruses in${green} "${i}" ${blue}metagenome${nc}"
         checkv end_to_end \
-        $oDir/03.1_all_viral_contigs/${i}_combined_contigs.fna \
+        $oDir/03.1_all_viral_contigs/${i}/${i}_combined_contigs.fna \
         $oDir/04_checkv/${i} \
         -t $threads \
         -d $checkvdb
@@ -373,12 +372,9 @@ if [[ "$STEP" == 5 || "$mode" == "complete" ]]; then
     mkdir -p $oDir/05_fastANI #make output directory
     (cd $oDir/04_checkv && ls -d */ | cut -f1 -d'/' > $oDir/05_fastANI/infiles.txt) #list all folders in target directory
 
-    for s in $(cat $oDir/05_fastANI/infiles.txt); do
-        cd $oDir/04_checkv/${s}/phages && ls | xargs readlink -f | uniq > $oDir/05_fastANI/fastANI_phage_files.txt
-    done
-
     echo -e "${blue}Comparing Phages in "${i}" with FastANI ${nc}"
     for i in $(cat $oDir/05_fastANI/infiles.txt); do
+        cd $oDir/04_checkv/${i}/phages && ls | xargs readlink -f | uniq > $oDir/05_fastANI/fastANI_phage_files.txt
         mkdir -p $oDir/05_fastANI/${i}
         $fastANI --ql $oDir/05_fastANI/fastANI_phage_files.txt \
         --rl $oDir/05_fastANI/fastANI_phage_files.txt \
@@ -398,6 +394,7 @@ if [[ "$STEP" == 5 || "$mode" == "complete" ]]; then
         echo -e "#####${nc}"
         ######
         Rscript /bioinf/home/benedikt.heyerhoff/fastANI_output_filtering.R
+        rm -rf $oDir/05_fastANI/fastANI_phage_files.txt
     done
 fi
 
@@ -429,7 +426,7 @@ if [[ "$STEP" == 6 || "$mode" == "complete" ]]; then
         DB=$oDir/06_bowtie2/temp/Bowtie2.db
 
         echo
-        echo -e ${blue}"Mapping reads from ${green}"$s"_R1.fastq${nc} and ${green}"$s"_R2.fastq${nc} to database: "$DB" " 
+        echo -e ${blue}"Mapping reads from ${green}"$s"_R1.fastq${nc} and ${green}"$s"_R2.fastq${nc} to database: "$DB" of ${green}"$s"${nc} phages" 
         bowtie2 --very-sensitive-local \
         -x $DB \
         -1 $rDir/${s}_*1.fastq \
@@ -586,10 +583,30 @@ if [[ "$STEP" == 10 ]]; then
 fi
 
 ###################################################################################################################################
+# MODE: Crass                                                                                                                     #
+###################################################################################################################################
+if [[ "$STEP" == 10 ]]; then
+    echo -e "${green} Next step: Crass ${nc}"
+    echo ""
+    echo ""
+
+    mkdir -p $oDir/10_crass/
+
+    (cd $rDir && ls *.f*) | awk 'BEGIN{FS=OFS=".fastq"}{NF--; print}' | uniq > $oDir/10_crass/infiles.txt
+    for s in $(cat $oDir/10_crass/infiles.txt); do
+        echo -e "\e[42m Running "${s}" with CRASS, detecting CRISPR spacers ${nc}..." 
+        crass \
+        -o $oDir/10_crass/${s} \
+        -l 4 \
+        $rDir/${s}.fastq;
+    done
+fi
+
+###################################################################################################################################
 # MODE: Vcontact2                                                                                                                 #
 ###################################################################################################################################
 
-if [[ "$STEP" == 11 ]]; then
+if [[ "$STEP" == 12 ]]; then
     echo -e "${green} Next step: Vcontact2 ${nc}"
     echo ""
     echo ""
@@ -637,7 +654,7 @@ fi
 
 
 ####################################### ViralRefSeq Blast ##################################
-if [[ "$STEP" == 12 ]]; then
+if [[ "$STEP" == 13 ]]; then
     echo -e "${green} Next step: Blasting length filtered contigs against ViralRefSeq ${nc}"
     echo ""
     echo -e "${green} Creating Diamond BlastN DB ${nc}..." 

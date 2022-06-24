@@ -58,43 +58,49 @@ quality %>%
   dplyr::filter(checkv_quality == "Low-quality" & contig_length >= minlength) -> low_quality
 
 quality %>% 
-  dplyr::filter(checkv_quality == "High-quality" & contig_length >= minlength) -> high_quality
-
-quality %>% 
   dplyr::filter(provirus == "Yes" & contig_length >= minlength) -> proviruses
 
 
 #make a vector contianing all names of dfs
-dfs = c("complete_phages", "high_quality", "medium_quality", "low_quality", 
-        "complete_phages", "proviruses")
+dfs = c("complete_phages", "high_quality", "medium_quality", "low_quality", "proviruses")
 #Place DFs into list
-qc_list = list(complete_phages, high_quality, medium_quality, low_quality, complete_phages, proviruses)
+qc_list = list(complete_phages, high_quality, medium_quality, low_quality, proviruses)
 names(qc_list) = dfs
 
 
 ##############################################################################################################
 #Import phages sequences
 ##############################################################################################################
-#make directory path for fasta import
+#Phages
 print(paste("IMPORTING FASTA FILE(S) WITH VIRAL SEQUENCES"))
 directory = file.path(oDir, "04_checkv", iter, "viruses.fna")
-viral_sequences = read.fasta(file = directory, as.string = TRUE, whole.header = TRUE, 
+if (file.size(directory) > 0){
+  viral_sequences = read.fasta(file = directory, as.string = TRUE, whole.header = TRUE, 
                              seqtype = "DNA") #import phage fasta file
+  
+  #convert viral sequences to upper case
+  for(i in 1:length(viral_sequences)){
+    viral_sequences[i] = toupper(viral_sequences[i])
+  }
+  rm(i)
+}else{
+  print(paste("No phages in this sample"))
+}
+#Prophages
 directory = file.path(oDir, "04_checkv", iter, "proviruses.fna")
-provirus_sequences = read.fasta(file = directory, as.string = TRUE, whole.header = TRUE, 
-                                seqtype = "DNA") #import prophage fasta file
+if (file.size(directory) > 0){
+  provirus_sequences = read.fasta(file = directory, as.string = TRUE, whole.header = TRUE, 
+                                  seqtype = "DNA") #import prophage fasta file
+  
+  #convert proviral sequences to upper case
+  for(i in 1:length(provirus_sequences)){
+    provirus_sequences[i] = toupper(provirus_sequences[i])
+  }
+  rm(i)
+}else{
+  print(paste("No prophages in this sample"))
+}
 rm(directory)#remove directory variable
-
-#convert viral sequences to upper case
-for(i in 1:length(viral_sequences)){
-  viral_sequences[i] = toupper(viral_sequences[i])
-}
-rm(i)
-#convert proviral sequences to upper case
-for(i in 1:length(provirus_sequences)){
-  provirus_sequences[i] = toupper(provirus_sequences[i])
-}
-rm(i)
 
 ##############################################################################################################
 #BINNING
@@ -106,13 +112,22 @@ complete_phages_seq = viral_sequences[names(viral_sequences) %in% complete_phage
 high_quality_seq = viral_sequences[names(viral_sequences) %in% high_quality$contig_id] 
 medium_quality_seq = viral_sequences[names(viral_sequences) %in% medium_quality$contig_id] 
 low_quality_seq = viral_sequences[names(viral_sequences) %in% low_quality$contig_id]
-provirus_seq = provirus_sequences[names(provirus_sequences)]
+if(exists("provirus_seq")){
+  provirus_seq = provirus_sequences[names(provirus_sequences)]
+}
 
 #make list of lists
-qc_list_seq = list(complete_phages_seq, high_quality_seq, medium_quality_seq, low_quality_seq, provirus_seq)
-seq_dfs = c("complete_phages", "high_quality", "medium_quality", "low_quality", "proviruses")
-names(qc_list_seq) = seq_dfs
-rm(complete_phages_seq, high_quality_seq, medium_quality_seq, low_quality_seq, provirus_seq)
+if(exists("provirus_seq")){
+  qc_list_seq = list(complete_phages_seq, high_quality_seq, medium_quality_seq, low_quality_seq, provirus_seq)
+  seq_dfs = c("complete_phages", "high_quality", "medium_quality", "low_quality", "proviruses")
+  names(qc_list_seq) = seq_dfs
+  rm(complete_phages_seq, high_quality_seq, medium_quality_seq, low_quality_seq, provirus_seq)
+}else{
+  qc_list_seq = list(complete_phages_seq, high_quality_seq, medium_quality_seq, low_quality_seq)
+  seq_dfs = c("complete_phages", "high_quality", "medium_quality", "low_quality")
+  names(qc_list_seq) = seq_dfs
+  rm(complete_phages_seq, high_quality_seq, medium_quality_seq, low_quality_seq)
+}
 
 ##############################################################################################################
 #EXPORt QUALITY TABLES
@@ -130,7 +145,7 @@ for (i in 1:length(dfs)){
 rm(directory, i)#remove directory variable
 
 print(paste0("####################################################"))
-print(paste0("If a warning message occurs here, it can be ignored"))
+print(paste0("If a warning message occurs here, it can probably be ignored"))
 #Make a quick summary df
 df <-
   tidyr::separate(
@@ -140,7 +155,7 @@ df <-
     into = c("contig", "tool"),
     remove = TRUE
   )
-print(paste0("If a warning message occurs here, it can be ignored"))
+print(paste0("If a warning message occurs here concerning additional pieces discarded in n rows rows, it can be ignored"))
 print(paste0("####################################################"))
 
 for(i in 1:nrow(df)) {
@@ -162,20 +177,26 @@ rm(i)
 #create quick summary
 ##############################################################################################################
 df %>%
-  group_by(tool, checkv_quality, provirus, lt2gene) %>% 
+  group_by(tool, checkv_quality, provirus, {if("lt2gene" %in% names(.)) lt2gene else NULL}) %>% 
   summarise(contig_count = n(),
             Mean_contig_length = mean(contig_length, na.rm=TRUE), 
             Median_contig_length = median(contig_length, na.rm=TRUE)) -> a 
-a$lt2gene[is.na(a$lt2gene)] = "no"
+
+if ("lt2gene" %in% names(a)) {
+  a$lt2gene[is.na(a$lt2gene)] = "no"
+}
+
 
 a$handling_by_filter_script = NA
 for(i in 1:nrow(a)){
   if (str_detect(a[i, "checkv_quality"], "Not-determined") == TRUE){
     a[i, "handling_by_filter_script"] = "removed by filtering"
   }else{
-    if (str_detect(a[i, "lt2gene"], "yes") == TRUE){
+    if("lt2gene" %in% names(a)){
+      if (str_detect(a[i, "lt2gene"], "yes") == TRUE){
       a[i, "handling_by_filter_script"] = "removed by filtering"
-    }else{
+      }
+      }else{
       a[i, "handling_by_filter_script"] = "retained"
     }
   }
@@ -204,60 +225,56 @@ for (i in 1:length(seq_dfs)){
       
       if (str_detect(names(export), "full") == TRUE) {
         #names(export) = gsub("(virsorter2).*", "\\1", names(export))
-        n = gsub("bp.*", "\\1bp", names(export)) #this is in case the sequence is a prophage sequence. it cuts the name 
-        n = paste0(gsub("_full", "_virsorter2_",
+        n = gsub("_[0-9] .*", "", names(export)) #this is in case the sequence is a prophage sequence. it cuts the name 
+        n = paste0(gsub("full", "virsorter2",
                         gsub(";", "_",
                                   gsub("([0-9]+)_bp", "", n))),
                    ifelse(quality[which(quality == n), "provirus"] == "Yes", 
-                          paste0(quality[which(quality == n), "checkv_quality"], "_provirus", "_",
+                          paste0("_", quality[which(quality == n), "checkv_quality"], "_provirus", "_",
                                  quality[which(quality == n), "contig_length"], "bp"), 
-                          paste0( quality[which(quality == n), "checkv_quality"],"_", 
+                          paste0("_", quality[which(quality == n), "checkv_quality"],"_", 
                                   quality[which(quality == n), "contig_length"], "bp")))
-        n = gsub("__", "_", n)
         #find the name of current iteration in quality dataframe and add contig quality, length and if
         #complete or partial to name so it can be exported as fasta header
         names(export) = n
       }
       
       if (str_detect(names(export), "partial") == TRUE) {
-        n = gsub("bp.*", "\\1bp", names(export))
-        n = paste0(gsub("_full", "_virsorter2_",
+        n = gsub("_[0-9] .*", "", names(export))
+        n = paste0(gsub("full", "virsorter2",
                         gsub(";", "_",
-                             gsub("__", "_",
-                                  gsub("([0-9]+)_bp", "", n)))),
+                             gsub("([0-9]+)_bp", "", n))),
                    ifelse(quality[which(quality == n), "provirus"] == "Yes", 
-                          paste0(quality[which(quality == n), "checkv_quality"], "_provirus", "_",
+                          paste0("_", quality[which(quality == n), "checkv_quality"], "_provirus", "_",
                                  quality[which(quality == n), "contig_length"], "bp"), 
-                          paste0( quality[which(quality == n), "checkv_quality"],"_", 
-                                  quality[which(quality == n), "contig_length"], "bp")))
-        n = gsub("__", "_", n)
+                          paste0("_", quality[which(quality == n), "checkv_quality"],"_", 
+                                 quality[which(quality == n), "contig_length"], "bp")))
         #find the name of current iteration in quality dataframe and add contig quality, length and if
         #complete or partial to name so it can be exported as fasta header
         names(export) = n
       }
       
       if (str_detect(names(export), "vibrant") == TRUE) {
-        n = gsub("\\;vibrant", "", names(export))
-        n = paste0(n, "_vibrant_",
-                   ifelse(quality[which(quality == names(export)), "provirus"] == "Yes", 
-                          paste0(quality[which(quality == names(export)), "checkv_quality"], "_provirus", "_",
-                                 quality[which(quality == names(export)), "contig_length"], "bp"), 
-                          paste0(quality[which(quality == names(export)), "checkv_quality"], "_",
-                                 quality[which(quality == names(export)), "contig_length"], "bp")))
+        n = gsub("_[0-9] .*", "", names(export))
+        n = paste0(gsub(";", "_", n), 
+                   ifelse(quality[which(quality == n), "provirus"] == "Yes", 
+                          paste0("_", quality[which(quality == n), "checkv_quality"], "_provirus", "_",
+                                 quality[which(quality == n), "contig_length"], "bp"), 
+                          paste0("_", quality[which(quality == n), "checkv_quality"], "_",
+                                 quality[which(quality == n), "contig_length"], "bp")))
         #find the name of current iteration in quality dataframe and add contig quality, length and if
         #complete or partial to name so it can be exported as fasta header
         names(export) = n
       }
       
       if (str_detect(names(export), "metaviralspades") == TRUE) {
-        n = gsub("_metaviralspades", "", names(export))
-        n = gsub("_cutoff.*", "", n)
-        n = paste0(n, "_metaviralspades_",
-                   ifelse(quality[which(quality == names(export)), "provirus"] == "Yes", 
-                          paste0(quality[which(quality == names(export)), "checkv_quality"], "_provirus", "_",
-                                 quality[which(quality == names(export)), "contig_length"], "bp"), 
-                          paste0(quality[which(quality == names(export)), "checkv_quality"], "_", 
-                                 quality[which(quality == names(export)), "contig_length"], "bp")))
+        n = gsub("_[0-9] .*", "", names(export))
+        n = paste0(gsub(";", "_", n),  
+                   ifelse(quality[which(quality == n), "provirus"] == "Yes", 
+                          paste0("_", quality[which(quality == n), "checkv_quality"], "_provirus", "_",
+                                 quality[which(quality == n), "contig_length"], "bp"), 
+                          paste0("_", quality[which(quality == n), "checkv_quality"], "_", 
+                                 quality[which(quality == n), "contig_length"], "bp")))
         #find the name of current iteration in quality dataframe and add contig quality, length and if
         #complete or partial to name so it can be exported as fasta header
         names(export) = n

@@ -44,7 +44,6 @@ print(paste(directory))
 print(paste("############################"))
 rm(directory)
 
-
 ##############################################################################################################
 #import FastANI report
 ##############################################################################################################
@@ -57,7 +56,7 @@ rm(file)
 
 #remove directory path from sequences so that its easier to work with them
 path = file.path(oDir, "04_checkv", iter, "phages/")
-path = "/bioinf/home/benedikt.heyerhoff/planktotrons_1/04_checkv/BENG-vm-1_S15_L001/phages/"
+#path = "/bioinf/home/benedikt.heyerhoff/planktotrons/04_checkv/P01-H03-ICBM-24/phages/"
 #
 print(paste("CLEANING FastANI OUTPUT FILE"))
 for(i in 1:nrow(fastANI)){
@@ -222,12 +221,17 @@ dir = file.path(oDir, "05_fastANI", iter, "duplicated_phages")
 dir.create(dir, showWarnings = TRUE)
 
 print(paste("EXPORTING DUPLICATED PHAGES"))
-for(i in 1:length(duplicated.phage.sequences)) {
-  export = duplicated.phage.sequences[i]
-  file = file.path(oDir, "05_fastANI", iter, "duplicated_phages", names(export))
-  write.fasta(export, names(export), file, open = "w")  
+if (length(duplicated.phage.sequences) > 0) {
+  for(i in 1:length(duplicated.phage.sequences)) {
+    export = duplicated.phage.sequences[i]
+    file = file.path(oDir, "05_fastANI", iter, "duplicated_phages", names(export))
+    write.fasta(export, names(export), file, open = "w")  
+  }
+}else{
+  print(paste("NO DUPLICATE PHAGES IN THIS SAMPLE"))
 }
-rm(i)
+
+
 
 #################################################################################################################
 #Heatmap2 of filtered phages
@@ -258,27 +262,29 @@ rm(fastANI.matrix, cols, gradient1, gradient2, path, breaks)
 #################################################################################################################
 #Heatmap3 of duplicated phages
 #################################################################################################################
-fastANI.matrix <- acast(fastANI.id, query_genome~reference_genome, value.var="ANI_value")
-fastANI.matrix[is.na(fastANI.matrix)] <- id
-
-#this whole numeric conversion has to be done because R on the cluster somehow converts the matrix to character...
-fastANI.matrix = as.data.frame(fastANI.matrix)
-fastANI.matrix[] <- lapply(fastANI.matrix, as.numeric)
-####
-
-#create breaks and gradient
-breaks = seq(min(fastANI.matrix), max(100), length.out=100)
-gradient1 = colorpanel( sum( breaks[-1] <= 95 ), "red", "white" )
-gradient2 = colorpanel( sum( breaks[-1] > 95 & breaks[-1] <= 100), "white", "blue" )
-#color vector for heatmap
-cols = c(gradient1, gradient2)
-#path where heatmap will be exported to
-path = file.path(oDir, "05_fastANI", iter, "heatmaps")
-#export as pdf
-pdf(paste0(path, "/", "duplicated_contigs_FastANI_Heatmap.pdf"))
+if(length(duplicated.phage.sequences > 0)) {
+  fastANI.matrix <- acast(fastANI.id, query_genome~reference_genome, value.var="ANI_value")
+  fastANI.matrix[is.na(fastANI.matrix)] <- id
+  
+  #this whole numeric conversion has to be done because R on the cluster somehow converts the matrix to character...
+  fastANI.matrix = as.data.frame(fastANI.matrix)
+  fastANI.matrix[] <- lapply(fastANI.matrix, as.numeric)
+  ####
+  
+  #create breaks and gradient
+  breaks = seq(min(fastANI.matrix), max(100), length.out=100)
+  gradient1 = colorpanel( sum( breaks[-1] <= 95 ), "red", "white" )
+  gradient2 = colorpanel( sum( breaks[-1] > 95 & breaks[-1] <= 100), "white", "blue" )
+  #color vector for heatmap
+  cols = c(gradient1, gradient2)
+  #path where heatmap will be exported to
+  path = file.path(oDir, "05_fastANI", iter, "heatmaps")
+  #export as pdf
+  pdf(paste0(path, "/", "duplicated_contigs_FastANI_Heatmap.pdf"))
   heatmap.2(as.matrix(fastANI.matrix), scale = "none", trace = "none", col = cols, cexRow=.30, cexCol=.30)
-dev.off()
-rm(fastANI.matrix, cols, gradient1, gradient2, path, breaks)
+  dev.off()
+  rm(fastANI.matrix, cols, gradient1, gradient2, path, breaks)
+}
 
 #clear everything and exit
 rm(list = ls())
