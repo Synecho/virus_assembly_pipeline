@@ -145,7 +145,7 @@ vcontact2_tax_predict=/bioinf/home/benedikt.heyerhoff/Resources/vcontact2_tax_pr
 VirHostMatcher=/bioinf/home/benedikt.heyerhoff/Resources/VirHostMatcher-Net/VirHostMatcher-Net.py
 marinehostlist=/bioinf/home/benedikt.heyerhoff/Resources/VirHostMatcher-Net/genome_list/marine_host_list.txt
 generalhostlist=/bioinf/home/benedikt.heyerhoff/Resources/VirHostMatcher-Net/genome_list/hmp_host_list.txt
-viralrefseq=/bioinf/home/benedikt.heyerhoff/Resources/database/viral.3.protein.faa
+viralrefseq=/bioinf/home/benedikt.heyerhoff/Resources/database/viral_refseq_212/viral_refseq_212.faa
 virhostmatcherdata=/bioinf/home/benedikt.heyerhoff/Resources/VirHostMatcher-Net/data
 vibrant=/bioinf/home/benedikt.heyerhoff/Resources/VIBRANT/VIBRANT_run.py
 fastANI=/bioinf/home/benedikt.heyerhoff/Resources/FastANI/fastANI
@@ -186,7 +186,7 @@ fi
 # MODE: SPAdes                                                                                                                    #
 ###################################################################################################################################
 if [[ "$STEP" == 0 || "$mode" == "complete" ]]; then
-    echo -e "${green}Next step: SPAdes${nc}"
+    echo -e "${green}Next step: SPAdes --assembling contigs--${nc}"
     echo ""
     echo ""
     for s in $(cat $oDir/infiles.txt); do
@@ -214,7 +214,7 @@ fi
 ###################################################################################################################################
 
 if [[ "$STEP" == 1 || "$mode" == "complete" ]]; then
-    echo -e "${green}Next step: metaviralSPAdes${nc}"
+    echo -e "${green}Next step: metaviralSPAdes --detecting viruses--${nc}"
     echo ""
     echo ""
     for s in $(cat $oDir/infiles.txt); do
@@ -245,7 +245,7 @@ fi
 ###################################################################################################################################
 
 if [[ "$STEP" == 2 || "$mode" == "complete" ]]; then
-    echo -e "${green}Next step: Virsorter2${nc}"
+    echo -e "${green}Next step: Virsorter2 --detecting viruses--${nc}"
     echo ""
     echo ""
     singularity run $virsorter2 config --set HMMSEARCH_THREADS=$threads #configure threads for hmmsearch
@@ -283,7 +283,7 @@ fi
 ###################################################################################################################################
 
 if [[ "$STEP" == 3 || "$mode" == "complete" ]]; then
-    echo -e "${green}Next step: VIBRANT${nc}"
+    echo -e "${green}Next step: VIBRANT --predicting viruses and detecting AMGs--${nc}"
     echo ""
     echo ""
     for s in $(cat $oDir/infiles.txt); do
@@ -314,7 +314,7 @@ fi
 ###################################################################################################################################
 
 if [[ "$STEP" == 4 || "$mode" == "complete" ]]; then
-    echo -e "${green} Next step: CheckV ${nc}"
+    echo -e "${green} Next step: CheckV --cehcking quality of assembled phage contigs--${nc}"
     echo ""
     echo ""
 
@@ -365,7 +365,7 @@ fi
 ###################################################################################################################################
 
 if [[ "$STEP" == 5 || "$mode" == "complete" ]]; then
-    echo -e "${green} Next step: FastANI ${nc}"
+    echo -e "${green} Next step: FastANI --detecting and filtering duplicated viruses--${nc}"
     echo ""
     echo ""
 
@@ -403,7 +403,7 @@ fi
 ###################################################################################################################################
 
 if [[ "$STEP" == 6 || "$mode" == "complete" ]]; then
-    echo -e "${green} Next step: Bowtie2 ${nc}"
+    echo -e "${green} Next step: Bowtie2 --mapping contigs and creating abundance tables--${nc}"
     echo ""
     echo ""
     
@@ -462,7 +462,7 @@ fi
 # MODE: VirHostMatcher-Net                                                                                                        #
 ###################################################################################################################################
 if [[ "$STEP" == 7 || "$mode" == "complete" ]]; then
-    echo -e "${green} Next step: VirHostMatcher-net ${nc}"
+    echo -e "${green} Next step: VirHostMatcher-net --matching host to virus--${nc}"
     echo -e "Using" $hosts "as reference host list"
     echo ""
     echo ""
@@ -507,7 +507,7 @@ fi
 # MODE: BACPHLIP                                                                                                                  #
 ###################################################################################################################################
 if [[ "$STEP" == 8 || "$mode" == "complete" ]]; then
-    echo -e "${green} Next step: BACPHLIP ${nc}"
+    echo -e "${green} Next step: BACPHLIP --predicting life style--${nc}"
     echo ""
     echo ""
 
@@ -607,7 +607,7 @@ fi
 ###################################################################################################################################
 
 if [[ "$STEP" == 12 ]]; then
-    echo -e "${green} Next step: Vcontact2 ${nc}"
+    echo -e "${green} Next step: Vcontact2 --clustering viruses by protein identity--${nc}"
     echo ""
     echo ""
     echo -e "${blue} predicting ORFs with Prodigal${nc}"
@@ -655,7 +655,7 @@ fi
 
 ####################################### ViralRefSeq Blast ##################################
 if [[ "$STEP" == 13 ]]; then
-    echo -e "${green} Next step: Blasting length filtered contigs against ViralRefSeq ${nc}"
+    echo -e "${green} Next step: Blasting --assigning taxonomy using viralrefseq-- ${nc}"
     echo ""
     echo -e "${green} Creating Diamond BlastN DB ${nc}..." 
     echo ""
@@ -670,7 +670,6 @@ if [[ "$STEP" == 13 ]]; then
         --db $oDir/blastP/viralrefseq_diamond_db.dmnd \
         --query $oDir/prodigal/${s}/proteins/${s}_proteins.faa \
         --outfmt "6" \
-        --matrix "BLOSUM45" \
         --evalue 0.0001 \
         --min-score 50 \
         --out $oDir/blastP/${s}_blastn_viralrefseq.txt;
