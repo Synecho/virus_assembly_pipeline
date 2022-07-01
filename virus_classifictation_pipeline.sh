@@ -125,7 +125,7 @@ echo "9: Demovir"
 echo "10: ViPTreeGen"
 echo "11: Vcontact2"
 echo "12: DIAMOND Blastp ViralRefSeq"
-echo "complete"
+echo "complete =run complete pipeline"
 echo -e "${nc}"
 
 echo -e "${red}"
@@ -259,7 +259,7 @@ if [[ "$STEP" == 2 || "$mode" == "complete" ]]; then
         --min-length $minlength \
         --keep-original-seq \
         -j $threads
-    
+
         mkdir -p $oDir/02_Virsorter2/${s}
         mv $oDir/02_Virsorter2/tmp/*.fa* $oDir/02_Virsorter2/${s}/${s}_virsorter.fasta
         mv $oDir/02_Virsorter2/tmp/final-viral-score.tsv $oDir/02_Virsorter2/${s}/${s}_virsorter_viral_score.tsv
@@ -583,30 +583,10 @@ if [[ "$STEP" == 10 ]]; then
 fi
 
 ###################################################################################################################################
-# MODE: Crass                                                                                                                     #
-###################################################################################################################################
-if [[ "$STEP" == 10 ]]; then
-    echo -e "${green} Next step: Crass ${nc}"
-    echo ""
-    echo ""
-
-    mkdir -p $oDir/10_crass/
-
-    (cd $rDir && ls *.f*) | awk 'BEGIN{FS=OFS=".fastq"}{NF--; print}' | uniq > $oDir/10_crass/infiles.txt
-    for s in $(cat $oDir/10_crass/infiles.txt); do
-        echo -e "\e[42m Running "${s}" with CRASS, detecting CRISPR spacers ${nc}..." 
-        crass \
-        -o $oDir/10_crass/${s} \
-        -l 4 \
-        $rDir/${s}.fastq;
-    done
-fi
-
-###################################################################################################################################
 # MODE: Vcontact2                                                                                                                 #
 ###################################################################################################################################
 
-if [[ "$STEP" == 12 ]]; then
+if [[ "$STEP" == 11 ]]; then
     echo -e "${green} Next step: Vcontact2 --clustering viruses by protein identity--${nc}"
     echo ""
     echo ""
@@ -652,33 +632,51 @@ if [[ "$STEP" == 12 ]]; then
     done
 fi
 
-
 ####################################### ViralRefSeq Blast ##################################
-if [[ "$STEP" == 13 ]]; then
+if [[ "$STEP" == 12 ]]; then
     echo -e "${green} Next step: Blasting --assigning taxonomy using viralrefseq-- ${nc}"
+    mkdir -p $oDir/12_blastP/
+    echo -e "${green} Creating Diamond Blast-DB${nc}..." 
     echo ""
-    echo -e "${green} Creating Diamond BlastN DB ${nc}..." 
     echo ""
-    mkdir -p $oDir/blastP
-    diamond makedb --in $viralrefseq -d $oDir/blastP/viralrefseq_diamond_db.dmnd
     echo ""
-    echo -e "${green} Diamond BlastN DB done! ${nc}..." 
-
-    for s in $(cat $oDir/infiles.txt ); do
-        echo -e "blasting ${green}"${s}"${nc} against DIAMOND database..." 
-        diamond blastp --very-sensitive \
-        --db $oDir/blastP/viralrefseq_diamond_db.dmnd \
-        --query $oDir/prodigal/${s}/proteins/${s}_proteins.faa \
-        --outfmt "6" \
-        --evalue 0.0001 \
-        --min-score 50 \
-        --out $oDir/blastP/${s}_blastn_viralrefseq.txt;
+    diamond makedb --in $viralrefseq -d $oDir/12_blastP/viralrefseq_diamond_db.dmnd
+    echo -e "${green} Diamond Blast-DB created! ${nc}..." 
+    echo ""
+    echo ""
+    echo ""
+    echo -e "${blue} predicting proteins with Prodigal${nc}"
+    (cd $oDir/05_fastANI && ls -d */ | cut -f1 -d'/' > $oDir/12_blastP/infiles.txt)
+    for s in $(cat $oDir/12_blastP/infiles.txt); do        
+        mkdir -p $oDir/12_blastP/prodigal/${s}
+        #
+        (cd $oDir/05_fastANI/${s}/phages/ && ls *.f*) | awk 'BEGIN{FS=OFS=".fna"}{NF--; print}' > $oDir/12_blastP/prodigal/${s}/infiles.txt
+        for i in $(cat $oDir/12_blastP/prodigal/${s}/infiles.txt); do
+            prodigal -i $oDir/05_fastANI/${s}/phages/${i}.fna \
+            -o $oDir/12_blastP/prodigal/${s}/${i}_proteins \
+            -a $oDir/12_blastP/prodigal/${s}/${i}_proteins.faa \
+            -p meta 
+            #
+            echo -e "blasting ${green}"${s}"${nc} against DIAMOND database..." 
+            echo ""
+            echo ""
+            echo ""
+            mkdir -p $oDir/12_blastP/${s}/
+            diamond blastp --very-sensitive \
+            --db $oDir/12_blastP/viralrefseq_diamond_db.dmnd \
+            --query $oDir/12_blastP/prodigal/${s}/${i}_proteins.faa \
+            --outfmt "6" \
+            --evalue 0.0001 \
+            --min-score 50 \
+            --out $oDir/12_blastP/${s}/${i}_blastp_viralrefseq.txt;
+        done
     done
+    echo -e "${green} Diamond BlastP done! ${nc}..."     
 fi
 
 echo ""
 echo ""
 echo -e "${BgGreen}############################################${nc}"
-echo -e "${BgGreen}###################${nc}Done!${BgGreen}####################${nc}"
+echo -e "${BgGreen}###################${blue}Done!${BgGreen}####################${nc}"
 echo -e "${BgGreen}############################################${nc}"
 
