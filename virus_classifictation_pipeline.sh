@@ -1,12 +1,5 @@
 #!/bin/sh
 #
-# Defaults
-rDir=0
-threads=40
-cDir=0
-IDX=0
-oDir=./
-db=0
 ################################################################################################################################
 #                                                          Colors                                                              #
 ################################################################################################################################
@@ -19,11 +12,17 @@ BgGreen='\e[42m'
 
 
 ################################################################################################################################
-#                                                    Analysis defaults                                                         #
+#                                                           Defaults                                                           #
 ################################################################################################################################
+# Path defaults
+rDir=0
+threads=40
+cDir=0
+IDX=0
+oDir=./
+db=0
 
-#options
-
+#Basic parameter options
 groups=dsDNAphage,NCLDV,RNA,ssDNA,lavidaviridae # viral groups for virsorter2
 minlength=1500                                  # default minimum viral contig length in bp
 id=95                                           # default minimum viral squence identity for clustering
