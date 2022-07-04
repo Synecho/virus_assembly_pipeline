@@ -124,6 +124,7 @@ echo "9: Demovir"
 echo "10: ViPTreeGen"
 echo "11: Vcontact2"
 echo "12: DIAMOND Blastp ViralRefSeq"
+echo "13: BlastN ViralRefSeq"
 echo "complete =run complete pipeline"
 echo -e "${nc}"
 
@@ -144,7 +145,8 @@ vcontact2_tax_predict=/bioinf/home/benedikt.heyerhoff/Resources/vcontact2_tax_pr
 VirHostMatcher=/bioinf/home/benedikt.heyerhoff/Resources/VirHostMatcher-Net/VirHostMatcher-Net.py
 marinehostlist=/bioinf/home/benedikt.heyerhoff/Resources/VirHostMatcher-Net/genome_list/marine_host_list.txt
 generalhostlist=/bioinf/home/benedikt.heyerhoff/Resources/VirHostMatcher-Net/genome_list/hmp_host_list.txt
-viralrefseq=/bioinf/home/benedikt.heyerhoff/Resources/database/viral_refseq_212/viral_refseq_212.faa
+viralrefseqp=/bioinf/home/benedikt.heyerhoff/Resources/database/viral_refseq_212/viral_refseq_212.faa
+viralrefseqn=/bioinf/home/benedikt.heyerhoff/Resources/database/viral_refseq_212/viral_refseq_212.fna
 virhostmatcherdata=/bioinf/home/benedikt.heyerhoff/Resources/VirHostMatcher-Net/data
 vibrant=/bioinf/home/benedikt.heyerhoff/Resources/VIBRANT/VIBRANT_run.py
 fastANI=/bioinf/home/benedikt.heyerhoff/Resources/FastANI/fastANI
@@ -631,7 +633,7 @@ if [[ "$STEP" == 11 ]]; then
     done
 fi
 
-####################################### ViralRefSeq Blast ##################################
+####################################### ViralRefSeq BlastP ##################################
 if [[ "$STEP" == 12 ]]; then
     echo -e "${green} Next step: Blasting --assigning taxonomy using viralrefseq-- ${nc}"
     mkdir -p $oDir/12_blastP/
@@ -639,7 +641,7 @@ if [[ "$STEP" == 12 ]]; then
     echo ""
     echo ""
     echo ""
-    diamond makedb --in $viralrefseq -d $oDir/12_blastP/viralrefseq_diamond_db.dmnd
+    diamond makedb --in $viralrefseqp -d $oDir/12_blastP/viralrefseqp_diamond_db.dmnd
     echo -e "${green} Diamond Blast-DB created! ${nc}..." 
     echo ""
     echo ""
@@ -662,7 +664,7 @@ if [[ "$STEP" == 12 ]]; then
             echo ""
             mkdir -p $oDir/12_blastP/${s}/
             diamond blastp --very-sensitive \
-            --db $oDir/12_blastP/viralrefseq_diamond_db.dmnd \
+            --db $oDir/12_blastP/viralrefseqp_diamond_db.dmnd \
             --query $oDir/12_blastP/prodigal/${s}/${i}_proteins.faa \
             --outfmt "6" \
             --evalue 0.0001 \
@@ -673,9 +675,44 @@ if [[ "$STEP" == 12 ]]; then
     echo -e "${green} Diamond BlastP done! ${nc}..."     
 fi
 
+
+####################################### ViralRefSeq BlastN ##################################
+if [[ "$STEP" == 13 ]]; then
+    echo -e "${green} Next step: BLAST --assigning taxonomy using ViralRefSeq-- ${nc}"
+    echo ""
+    echo ""
+    echo -e "${green} Creating BlastN database{nc}..." 
+    echo ""
+    echo ""
+    echo ""
+    makeblastdb -in $viralrefseqn \
+    -dbtype nucl \
+    -out $oDir/13_blastN/viralrefseqnDB  \
+
+
+    mkdir -p $oDir/13_blastN/
+    (cd $oDir/05_fastANI && ls -d */ | cut -f1 -d'/' > $oDir/13_blastN/infiles.txt)
+    for s in $(cat $oDir/13_blastN/infiles.txt); do        
+        mkdir -p $oDir/13_blastN/${s}
+        #
+        (cd $oDir/05_fastANI/${s}/phages/ && ls *.f*) | awk 'BEGIN{FS=OFS=".fna"}{NF--; print}' > $oDir/13_blastN/${s}/infiles.txt
+        
+        for i in $(cat $oDir/13_blastN/${s}/infiles.txt); do
+            echo -e "${green} Blasting ${blue} "${i}".fna ${green} with BlastN to ViralRefSeq ${nc}..." 
+            blastn -query $oDir/05_fastANI/${s}/phages/${i}.fna \
+            -db $oDir/13_blastN/viralrefseqnDB  \
+            -out $oDir/13_blastN/${s}/${i}_blastn_out.txt \
+            -evalue 0.01 \
+            -outfmt 6 \
+            -max_target_seqs 5 \
+            -num_threads $threads
+        done
+    done
+fi
+
 echo ""
 echo ""
 echo -e "${BgGreen}############################################${nc}"
-echo -e "${BgGreen}###################${blue}Done!${BgGreen}####################${nc}"
+echo -e "${BgGreen}#################${nc} ${green}--Done--${nc} ${BgGreen}#################${nc}"
 echo -e "${BgGreen}############################################${nc}"
 
