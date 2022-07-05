@@ -1,13 +1,6 @@
 ##############################################################################################################
 #Packages
 ##############################################################################################################
-invisible(lapply(names(sessionInfo()$otherPkgs), function(pkgs) #unload all user packages
-  detach(
-    paste0('package:', pkgs),
-    character.only = T,
-    unload = T,
-    force = T
-  )))
 #load required packages
 list.of.packages <- c( "seqinr", "gplots", "reshape2", "stringr", "readr", "dplyr", "BiocManager")
 new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
@@ -31,7 +24,7 @@ library(svglite)
 ##############################################################################################################
 oDir = Sys.getenv("oDir")
 iter = Sys.getenv("iter")
-id = Sys.getenv("id")
+id = as.numeric(Sys.getenv("id"))
 
 print(paste("############################"))
 print(paste("R Script input parameters:"))
@@ -54,10 +47,10 @@ rm(directory)
 ##############################################################################################################
 #import FastANI report
 ##############################################################################################################
-file = file.path(oDir, "05_fastANI", iter, paste0(iter,".fastANI_out.txt"))
+file = file.path(oDir, "05_fastANI", iter, paste(iter,".fastANI_out.txt", sep = ""))
 fastANI = read_delim(file,
                      delim = "\t", escape_double = FALSE, 
-                     col_names = FALSE, trim_ws = TRUE)
+                     col_names = FALSE, trim_ws = TRUE, show_col_types = FALSE)
 names(fastANI) = c("query_genome", "reference_genome", "ANI_value", "n_bidir_fragment_mappings", "total_query_mappings")
 rm(file)
 
@@ -66,15 +59,13 @@ path = file.path(oDir, "04_checkv", iter, "phages/")
 #path = "/bioinf/home/benedikt.heyerhoff/planktotrons/MG/04_checkv/M10_S4/phages/"
 #
 print(paste("CLEANING FastANI OUTPUT FILE"))
-for(i in 1:nrow(fastANI)){
-  fastANI[i, "query_genome"] = gsub(paste0(path), "", fastANI[i, "query_genome"])
-  fastANI[i, "reference_genome"] = gsub(paste0(path), "", fastANI[i, "reference_genome"])
-}
-rm(i)
 
+fastANI = fastANI %>%
+  mutate(query_genome = gsub(paste(path), "", query_genome)) %>%
+  mutate(reference_genome = gsub(paste(path), "", reference_genome)) 
 
 ##############################################################################################################
-#Heatmap1 of FastANI output
+#Heatmap of FastANI output
 ##############################################################################################################
 fastANI.matrix = acast(fastANI, query_genome~reference_genome, value.var = "ANI_value")
 fastANI.matrix[is.na(fastANI.matrix)] = id
@@ -104,12 +95,13 @@ rm(fastANI.matrix, cols, gradient1, gradient2, path, breaks)
 #################################################################################################################
 #filter any entries with identity lower than $id from id input flag in shell script
 #################################################################################################################
-print(paste0("FILTERING BY ", id, "% AVERAGE NUCLEOTIDE IDENTITY"))
-fastANI.id = fastANI %>%
-  filter(fastANI[, "ANI_value"] >= id)
+print(paste("FILTERING BY", id, "% AVERAGE NUCLEOTIDE IDENTITY"))
 
-fastANI.id$query_length = as.numeric(gsub("bp.fna", "", unlist(lapply(strsplit(fastANI.id$query_genome, "_"), tail, 1) )))
-fastANI.id$reference_length = as.numeric(gsub("bp.fna", "", unlist(lapply(strsplit(fastANI.id$reference_genome, "_"), tail, 1) )))
+fastANI.id = fastANI %>%
+  dplyr::filter(fastANI[, "ANI_value"] >= id)
+
+fastANI.id$query_length = as.numeric(gsub("bp.fna", "", unlist(lapply(str_split(fastANI.id$query_genome, "_"), tail, 1) )))
+fastANI.id$reference_length = as.numeric(gsub("bp.fna", "", unlist(lapply(str_split(fastANI.id$reference_genome, "_"), tail, 1) )))
 
 #################################################################################################################
 #Import phage sequences
@@ -127,51 +119,33 @@ for(i in 1:length(contig.list)) {
 }
 rm(i, file, tmp)
 
-#convert viral sequences to upper case
 for(i in 1:length(phage.sequences)){
   phage.sequences[i] = toupper(phage.sequences[i])
 }
-rm(i)
-
 
 #################################################################################################################
 #quality score expansion
 #################################################################################################################
-pattern = c("Low-quality", "Medium-quality", "High-quality", "Complete")
-  #query
-fastANI.id$query_quality=NA
-fastANI.id$reference_quality=NA
 
-a = c("query_genome", "reference_genome")
-b = c("query_quality", "reference_quality")
-
-for(i in 1:nrow(fastANI.id)){
-  for(s in 1:length(a)){
-    for(l in 1:length(b)){
-      for(k in 1:length(pattern)){
-        if (str_detect(fastANI.id[i, a[s]], pattern[k])) {
-          fastANI.id[i, b[l]] =  pattern[k]
-        }
-      }
-    }
-  }
-}
-rm(i,k,l,s,a,b)
-
-#add a numerical score to quality in order to make sorting easier
-fastANI.id %>%
-  mutate(query_q = case_when(
+fastANI.id <- fastANI.id %>%
+  dplyr::mutate(query_quality = dplyr::case_when(grepl("Low-quality", query_genome) ~ "Low-quality",
+                                   grepl("Medium-quality", query_genome) ~ "Medium-quality",
+                                   grepl("High-quality", query_genome) ~ "High-quality",
+                                   grepl("Complete", query_genome) ~ "Complete")) %>%
+  dplyr::mutate(reference_quality = dplyr::case_when(grepl("Low-quality", reference_genome) ~ "Low-quality",
+                                   grepl("Medium-quality", reference_genome) ~ "Medium-quality",
+                                   grepl("High-quality", reference_genome) ~ "High-quality",
+                                   grepl("Complete", reference_genome) ~ "Complete")) %>%
+  dplyr::mutate(query_q = dplyr::case_when(   #add a numerical score to quality in order to make sorting easier
     query_quality == "Low-quality"  ~ 1,
     query_quality == "Medium-quality"  ~ 2,
     query_quality == "High-quality"  ~ 2,
-    query_quality == "Complete" ~ 4)) -> fastANI.id
-
-fastANI.id %>%
-  mutate(reference_q = case_when(
+    query_quality == "Complete" ~ 4)) %>%
+  dplyr::mutate(reference_q = dplyr::case_when(
     reference_quality == "Low-quality"  ~ 1,
     reference_quality == "Medium-quality"  ~ 2,
     reference_quality == "High-quality"  ~ 2,
-    reference_quality == "Complete" ~ 4)) -> fastANI.id
+    reference_quality == "Complete" ~ 4)) %>% as.data.frame()
 
 #identify duplicated contig entries and keep contigs of higher quality and length
 remove.contigs = list()
