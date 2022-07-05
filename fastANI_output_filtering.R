@@ -1,7 +1,14 @@
 ##############################################################################################################
 #Packages
 ##############################################################################################################
-
+invisible(lapply(names(sessionInfo()$otherPkgs), function(pkgs) #unload all user packages
+  detach(
+    paste0('package:', pkgs),
+    character.only = T,
+    unload = T,
+    force = T
+  )))
+#load required packages
 list.of.packages <- c( "seqinr", "gplots", "reshape2", "stringr", "readr", "dplyr", "BiocManager")
 new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
 if(length(new.packages)) install.packages(new.packages,
@@ -56,7 +63,7 @@ rm(file)
 
 #remove directory path from sequences so that its easier to work with them
 path = file.path(oDir, "04_checkv", iter, "phages/")
-#path = "/bioinf/home/benedikt.heyerhoff/planktotrons/04_checkv/P01-H03-ICBM-24/phages/"
+#path = "/bioinf/home/benedikt.heyerhoff/planktotrons/MG/04_checkv/M10_S4/phages/"
 #
 print(paste("CLEANING FastANI OUTPUT FILE"))
 for(i in 1:nrow(fastANI)){
@@ -98,16 +105,11 @@ rm(fastANI.matrix, cols, gradient1, gradient2, path, breaks)
 #filter any entries with identity lower than $id from id input flag in shell script
 #################################################################################################################
 print(paste0("FILTERING BY ", id, "% AVERAGE NUCLEOTIDE IDENTITY"))
-fastANI %>%
-  filter(fastANI[, 3] >= id) -> fastANI.id
+fastANI.id = fastANI %>%
+  filter(fastANI[, "ANI_value"] >= id)
 
-fastANI.id$query_length = NA
-fastANI.id$reference_length = NA
-for(i in 1:nrow(fastANI.id)) {
-  fastANI.id[i,"query_length"] = as.numeric(gsub(".*_([0-9]+)bp.*", "\\1", fastANI.id[i,"query_genome"]))
-  fastANI.id[i,"reference_length"] = as.numeric(gsub(".*_([0-9]+)bp.*", "\\1", fastANI.id[i,"reference_genome"]))
-  }
-rm(i)
+fastANI.id$query_length = as.numeric(gsub("bp.fna", "", unlist(lapply(strsplit(fastANI.id$query_genome, "_"), tail, 1) )))
+fastANI.id$reference_length = as.numeric(gsub("bp.fna", "", unlist(lapply(strsplit(fastANI.id$reference_genome, "_"), tail, 1) )))
 
 #################################################################################################################
 #Import phage sequences

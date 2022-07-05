@@ -324,7 +324,6 @@ if [[ "$STEP" == 4 || "$mode" == "complete" ]]; then
     for i in $(cat $oDir/03.1_all_viral_contigs/infiles.txt); do #copy all potential virus contigs of iteration into one directory
         cat $oDir/03.1_all_viral_contigs/${i}/*.f* > $oDir/03.1_all_viral_contigs/${i}/${i}_combined_contigs.fna #combine all contigs into one multifasta per metagenome    
     done
-    #rm -rf $oDir/03.1_all_viral_contigs/${i}
     
     for i in $(cat $oDir/03.1_all_viral_contigs/infiles.txt); do
         echo -e "${blue}checking quality of viruses in${green} "${i}" ${blue}metagenome${nc}"
